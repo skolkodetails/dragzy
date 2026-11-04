@@ -38,7 +38,7 @@ IS_WIN = sys.platform.startswith("win")
 try:
     from PySide6.QtCore import (Qt, QEasingCurve, QPoint, QPointF, QPropertyAnimation, QRect,
                                 QRectF, QTimer)
-    from PySide6.QtGui import (QBrush, QConicalGradient, QImage, QColor, QCursor, QFont, QFontMetrics, QGuiApplication,
+    from PySide6.QtGui import (QBrush, QConicalGradient, QImage, QColor, QCursor, QFont, QFontInfo, QFontMetrics, QGuiApplication,
                                QLinearGradient, QPainter, QPainterPath, QPen, QPolygonF,
                                QRadialGradient)
     from PySide6.QtWidgets import (QApplication, QFrame, QHBoxLayout, QLabel, QMenu,
@@ -63,6 +63,7 @@ WEATHER = True               # False, совсем без интернета
 CITY = (55.7558, 37.6173)    # Москва
 PHRASE_EVERY_MIN = (15, 25)  # фразочка раз в 15-25 минут
 SOUND = True
+PRANKS = True                # хулиганства: увороты, записки, прятки, чих огнём
 FLY_SPEED = 2.6
 CHASE_SPEED = 6.0
 
@@ -212,9 +213,18 @@ def make_frame(eyes="open", wings="up", tail=0, look=0, mouth=None):
     # ---- face
     exs = (13.5 + look, 22.5 + look)
     ey = 11.5
-    if eyes in ("open", "wow"):
-        big = eyes == "wow"
-        for ex in exs:
+    open_eyes = exs
+    if eyes in ("wink", "brow"):
+        open_eyes = exs[1:] if eyes == "wink" else exs
+        if eyes == "wink":
+            i = int(exs[0])
+            layer({(i - 2, 12), (i - 1, 13), (i, 13), (i + 1, 13), (i + 2, 12)}, "E", outline=False)
+        eyes_draw = "open"
+    else:
+        eyes_draw = eyes
+    if eyes_draw in ("open", "wow"):
+        big = eyes_draw == "wow"
+        for ex in open_eyes:
             layer(ellipse(ex, ey, 3.4 if big else 3.2, 3.9 if big else 3.6), "E", outline=False)
             layer(ellipse(ex, ey, 2.7 if big else 2.5, 3.2 if big else 2.9),
                   lambda x, y: "g" if y >= int(ey) + 1 else "G", outline=False)
@@ -222,6 +232,16 @@ def make_frame(eyes="open", wings="up", tail=0, look=0, mouth=None):
             i = int(ex)
             layer({(i - 1, int(ey) - 2), (i, int(ey) - 2), (i - 1, int(ey) - 1), (i, int(ey) - 1)}, "W", outline=False)
             layer({(i + 1, int(ey) + 2)}, "W", outline=False)
+    elif eyes == "cool":
+        # тёмные очки
+        shades = set()
+        for ex in exs:
+            shades |= ellipse(ex, ey + .3, 3.4, 2.4)
+        shades |= {(x, int(ey) - 1) for x in range(int(exs[0]), int(exs[1]) + 1)}
+        layer(shades, "K", outline=False)
+        for ex in exs:
+            i = int(ex)
+            layer({(i - 2, int(ey) - 1), (i - 1, int(ey) - 1), (i - 2, int(ey))}, "W", outline=False)
     elif eyes in ("blink", "closed"):
         for ex in exs:
             i = int(ex)
@@ -236,8 +256,17 @@ def make_frame(eyes="open", wings="up", tail=0, look=0, mouth=None):
     # nostrils
     layer({(16, 14), (20, 14)}, "v", outline=False)
 
+    if eyes == "brow":
+        # поднятая бровь над правым глазом
+        i = int(exs[1])
+        layer({(i - 3, int(ey) - 4), (i - 2, int(ey) - 5), (i - 1, int(ey) - 6), (i, int(ey) - 6),
+               (i + 1, int(ey) - 6), (i + 2, int(ey) - 5)}, "K", outline=False)
+        j = int(exs[0])   # левый глаз чуть прищурен
+        layer({(j - 2, int(ey) - 3), (j - 1, int(ey) - 3), (j, int(ey) - 3), (j + 1, int(ey) - 3), (j + 2, int(ey) - 3)},
+              "K", outline=False)
     m = mouth or ("open" if eyes == "happy" else "o" if eyes == "wow"
-                  else "sleep" if eyes == "closed" else "smile")
+                  else "sleep" if eyes == "closed"
+                  else "smirk" if eyes in ("wink", "cool", "brow") else "smile")
     mx = 18 + (look if m != "sleep" else 0)
     if m == "smile":
         layer({(mx - 2, 15), (mx - 1, 16), (mx, 16), (mx + 1, 15)}, "K", outline=False)
@@ -250,6 +279,8 @@ def make_frame(eyes="open", wings="up", tail=0, look=0, mouth=None):
         layer({(mx - 1, 16), (mx, 16)}, "M", outline=False)
     elif m == "sleep":
         layer({(17, 16), (18, 16)}, "K", outline=False)
+    elif m == "smirk":
+        layer({(mx - 2, 16), (mx - 1, 16), (mx, 16), (mx + 1, 15), (mx + 2, 14)}, "K", outline=False)
     return g
 
 
@@ -318,6 +349,45 @@ PHRASES_ANY = [
     "сегодня сделано больше, чем кажется.",
 ]
 
+PHRASES_BADBOY = [
+    "не благодари. хотя можешь.",
+    "правила придумали те, кто не умеет летать. дедлайны, к сожалению, тоже.",
+    "я здесь не потому что волнуюсь. просто пролетал мимо. попей воды.",
+    "у меня нет плана. у меня есть харизма и немного огня.",
+    "мне не нужна мотивация, мне нужен зритель. работай, я посмотрю.",
+    "сделай перерыв. не ради меня. ради драмы.",
+    "мудрость дня: если задачу не победить, разбей её на части. на части, а не о стену.",
+    "это не я переставил иконки. но если я, то стало лучше.",
+    "плохие драконы тоже делают помидорки. просто не афишируют.",
+    "если кто-то спросит, это я заставил тебя отдохнуть. мне не жалко, у меня репутация.",
+    "секрет крутости: спать по ночам. звучит скучно, работает отлично.",
+    "не люблю нравоучения, поэтому коротко: телефон в сторону.",
+    "я загадочный. а ещё я знаю, что у тебя открыто слишком много вкладок.",
+    "легенды не торопятся. но и не прокрастинируют три часа подряд.",
+    "ахх, опять ты. ладно, рад. немного.",
+    "умный не тот, кто всё знает. умный тот, кто вовремя ложится спать. я, например.",
+]
+
+DODGE = ["не так быстро.", "мимо.", "поймай сначала.", "ой, промах."]
+GIVE_UP = ["ладно, ладно. сдаюсь.", "так уж и быть.", "уговорили. открываю."]
+DRAG = ["эй, руки. ладно, неси.", "аккуратнее, у меня причёска.", "я сам умею летать, вообще-то."]
+PEEK = ["ку-ку.", "не ищи меня.", "я тут. или нет."]
+CAUGHT = ["не догонишь.", "почти.", "слишком медленно."]
+SNEEZE = ["пардон. аллергия на дедлайны.", "это был не огонь. это был характер.", "никто ничего не видел."]
+COOL = ["я знаю. можешь не говорить.", "очки? для солнца. какого? своего.", "не обращай внимания, я просто крутой."]
+NOTE_DROP = ["оставил кое-что на столе. не благодари.", "у тебя на столе послание. ищи.", ""]
+NOTE_GONE = ["эй, это было искусство.", "ну и ладно. напишу ещё.", ""]
+NOTES = [
+    "тут был Слива",
+    "я съел твою прокрастинацию. было невкусно.",
+    "не ищи меня. я сам найдусь.",
+    "проверь, сколько у тебя вкладок. потом не говори, что я не предупреждал.",
+    "иконки трогал не я.",
+    "попей воды. подпись: тот самый дракон",
+    "ты справишься. но я тебе этого не говорил.",
+    "сегодня всё получится. это не комплимент, это прогноз.",
+]
+
 PHRASES_YOU = [  # личные фразы, переопредели их в personal.py
     "аргумент, пример, вывод. работает и в споре, и в курсовой.",
     "python не ругается, он показывает traceback. читай снизу вверх.",
@@ -364,6 +434,7 @@ try:
     CITY = getattr(_me, "CITY", CITY)
     PHRASES_YOU = list(getattr(_me, "PHRASES_YOU", PHRASES_YOU))
     PHRASES_ANY = PHRASES_ANY + list(getattr(_me, "PHRASES_EXTRA", []))
+    PHRASES_BADBOY = PHRASES_BADBOY + list(getattr(_me, "PHRASES_BADBOY_EXTRA", []))
     for _part, _lines in getattr(_me, "PHRASES_TIME_EXTRA", {}).items():
         PHRASES_TIME.setdefault(_part, []).extend(_lines)
 except ImportError:
@@ -382,9 +453,11 @@ def pick_phrase(now, weather_tips):
         text = random.choice(weather_tips)
     elif r < .45:
         text = time_phrase(now)
-    elif r < .72:
+    elif r < .6:
         text = random.choice(PHRASES_YOU)
-    elif r < .8 and now.weekday() in PHRASES_WEEKDAY:
+    elif PRANKS and r < .78:
+        text = random.choice(PHRASES_BADBOY)
+    elif r < .84 and now.weekday() in PHRASES_WEEKDAY:
         text = PHRASES_WEEKDAY[now.weekday()]
     else:
         text = random.choice(PHRASES_ANY)
@@ -1200,6 +1273,74 @@ class Panel(QWidget):
 
 
 # ================================================================= дракончик
+class StickyNote(QWidget):
+    """записка от Сливы на рабочем столе. клик убирает её."""
+    COLORS = [("#fff3a6", "#f3df6e"), ("#eadcff", "#cdb6f5"), ("#ffd9c2", "#f6b48e")]
+
+    def __init__(self, text, on_close):
+        super().__init__(None, base_flags())
+        self.setAttribute(Qt.WA_TranslucentBackground)
+        self.setAttribute(Qt.WA_ShowWithoutActivating)
+        self.text = voice(text)
+        self.on_close = on_close
+        self.angle = random.uniform(-6, 6)
+        self.col = random.choice(self.COLORS)
+        self.born = time.monotonic()
+        self.dying = None
+        self.setFixedSize(200, 150)
+        self.t = QTimer(self)
+        self.t.timeout.connect(self.anim)
+        self.t.start(33)
+
+    def anim(self):
+        now = time.monotonic()
+        if self.dying and now - self.dying > .3:
+            self.t.stop()
+            self.close()
+            self.on_close(self)
+            return
+        if now - self.born < .5 or self.dying:
+            self.update()
+
+    def paintEvent(self, e):
+        now = time.monotonic()
+        p = QPainter(self)
+        p.setRenderHint(QPainter.Antialiasing)
+        k = min(1, (now - self.born) / .35)
+        sc = .6 + .4 * (1 - (1 - k) ** 3) + .06 * math.sin(k * math.pi)
+        if self.dying:
+            d = min(1, (now - self.dying) / .3)
+            sc *= 1 - .5 * d
+            p.setOpacity(1 - d)
+        p.translate(self.width() / 2, self.height() / 2)
+        p.rotate(self.angle)
+        p.scale(sc, sc)
+        r = QRectF(-80, -52, 160, 104)
+        p.setPen(Qt.NoPen)
+        p.setBrush(QColor(30, 10, 50, 60))
+        p.drawRoundedRect(r.translated(3, 4), 4, 4)
+        g = QLinearGradient(r.topLeft(), r.bottomLeft())
+        g.setColorAt(0, QColor(self.col[0]))
+        g.setColorAt(1, QColor(self.col[1]))
+        p.setBrush(QBrush(g))
+        p.drawRoundedRect(r, 4, 4)
+        p.setBrush(QColor(255, 255, 255, 120))
+        p.drawRect(QRectF(-26, -60, 52, 16))   # скотч
+        f = QFont("Segoe Print", 9)
+        if not QFontInfo(f).family().lower().startswith("segoe print"):
+            f = QFont("Comic Sans MS", 9)
+        p.setFont(f)
+        p.setPen(QColor("#3a2350"))
+        p.drawText(r.adjusted(12, 12, -12, -22), Qt.TextWordWrap | Qt.AlignLeft | Qt.AlignTop, self.text)
+        p.setFont(QFont(f.family(), 8))
+        p.drawText(r.adjusted(12, 0, -10, -6), Qt.AlignRight | Qt.AlignBottom, PET_NAME)
+
+    def mousePressEvent(self, e):
+        if not self.dying:
+            self.dying = time.monotonic()
+            self.t.start(33)
+
+
 class Dragon(QWidget):
     TOP = 40       # место сверху под сердечко и «z»
     SCALE = 1
@@ -1244,6 +1385,15 @@ class Dragon(QWidget):
         self.weather_day = None
         self.next_phrase = time.monotonic() + random.uniform(*PHRASE_EVERY_MIN) * 60
 
+        # хулиганства
+        self.notes = []
+        self.mood = ("open", 0)         # временное выражение: wink / cool / brow
+        self.dodged = False
+        self.drag_said = False
+        self.peek_phase = 0
+        self.sneeze_from = 0
+        self.next_prank = time.monotonic() + self.prank_gap()
+
         self.menu = QMenu()
         self.menu.setStyleSheet(
             f"QMenu {{ background: {UI_BG}; color: {UI_TEXT}; border: 1px solid #4a3172; "
@@ -1265,7 +1415,7 @@ class Dragon(QWidget):
         self.timer.timeout.connect(self.tick)
         self.timer.start(33)
         QTimer.singleShot(2500, lambda: self.say(
-            f"привет, {USER_NAME}. я {PET_NAME}. кликни по мне, и откроется помодоро."))
+            f"привет, {USER_NAME}. я {PET_NAME}. кликни по мне, будет помодоро. если поймаешь."))
         self.check_weather()
         self.wtimer = QTimer(self)
         self.wtimer.timeout.connect(self.check_weather)
@@ -1322,10 +1472,10 @@ class Dragon(QWidget):
     def pomo_event(self, ev):
         P = self.pomo
         quick = {
-            "start": (f"поехали. {P.work} минут фокуса, я не буду отвлекать.", "happy"),
-            "resume": ("продолжаем.", "happy"),
-            "pause": ("пауза. таймер подождёт.", "hover"),
-            "reset": ("таймер сброшен. начнём, когда будет удобно.", "dizzy"),
+            "start": (f"поехали. {P.work} минут, и меня тут нет. почти.", "happy"),
+            "resume": ("продолжаем. я даже не заметил паузу.", "happy"),
+            "pause": ("пауза? понимаю. даже легенды отдыхают.", "hover"),
+            "reset": ("сброс. красиво начать заново тоже талант.", "dizzy"),
         }
         if ev in quick:
             text, st = quick[ev]
@@ -1334,14 +1484,14 @@ class Dragon(QWidget):
             return
         if ev == "rest" and P.record:
             P.record = False
-            text = f"новый рекорд дня: {P.done_total} {plural(P.done_total, 'помидорка', 'помидорки', 'помидорок')}. отдых {P.short if P.phase == 'short' else P.long} мин."
+            text = f"новый рекорд дня: {P.done_total} {plural(P.done_total, 'помидорка', 'помидорки', 'помидорок')}. я, конечно, знал. отдых {P.short if P.phase == 'short' else P.long} мин."
         elif ev == "rest":
             if P.phase == "long":
-                text = f"это была {P.every}-я помидорка подряд. теперь длинный отдых, {P.long} минут."
+                text = f"{P.every} помидорки подряд. длинный отдых, {P.long} минут. заслуженно, не спорь."
             else:
-                text = f"помидорка готова. отдых {P.short} мин: встань, попей воды, посмотри вдаль."
+                text = f"помидорка всё. отдых {P.short} мин: встань, попей воды, посмотри вдаль. я прослежу."
         else:
-            text = f"отдых закончился, пора работать. помидорка {P.round_no()} из {P.every}."
+            text = f"перерыв окончен. возвращаемся, звезда. помидорка {P.round_no()} из {P.every}."
         play_sound(ev)
         self.alert_until = time.monotonic() + 25
         z_top(self, True)
@@ -1399,6 +1549,78 @@ class Dragon(QWidget):
             w = self.work
             self.target = (w.center().x() - self.W / 2, w.top() + w.height() * .55)
             self.happy_from = now
+        elif st == "dodge":
+            c = QCursor.pos()
+            ang = math.atan2(self.y + self.H / 2 - c.y(), self.x + self.W / 2 - c.x()) + random.uniform(-.6, .6)
+            self.target = self.clamp(self.x + math.cos(ang) * 190, self.y + math.sin(ang) * 140)
+            self.until = now + 2
+        elif st == "peek":
+            self.peek_side = random.choice((-1, 1))
+            w = self.work
+            self.peek_phase = 1
+            self.target = ((w.left() - self.W - 20) if self.peek_side < 0 else (w.right() + 20),
+                           random.uniform(w.top() + 60, self.floor - 60))
+            self.until = now + 20
+        elif st == "sneeze":
+            self.sneeze_from = now
+            self.until = now + 2.2
+        elif st == "note":
+            w = self.work
+            self.target = (random.uniform(w.left() + 40, w.right() - self.W - 40),
+                           random.uniform(w.top() + 60, self.floor - 80))
+            self.until = now + 12
+        elif st == "sit":
+            self.until = now + 45
+
+    # ---------------- хулиганства
+    @staticmethod
+    def prank_gap():
+        lo, hi = random.choice(((3, 10), (10, 25), (25, 60)))   # по-разному
+        return random.uniform(lo, hi) * 60
+
+    def set_mood(self, eyes, sec):
+        self.mood = (eyes, time.monotonic() + sec)
+
+    def calm(self):
+        P = self.pomo
+        return P.running and P.phase == "work"
+
+    def prank(self):
+        options = ["note", "peek", "sneeze", "cool", "wink"]
+        if self.panel.isVisible():
+            options += ["sit", "sit"]
+        if len(self.notes) >= 3:
+            options.remove("note")
+        kind = random.choice(options)
+        if kind == "cool":
+            self.set_mood("cool", 6)
+            self.set_state("hover", 6)
+            self.say(random.choice(COOL), 5)
+        elif kind == "wink":
+            self.set_mood("wink", 1.5)
+            self.set_state("hover", 3)
+        elif kind == "sneeze":
+            self.set_state("sneeze")
+        else:
+            self.set_state(kind)
+
+    def drop_note(self):
+        n = StickyNote(random.choice(NOTES), self.note_closed)
+        n.move(int(self.x + self.W / 2 - n.width() / 2), int(self.y + self.H * .55))
+        n.show()
+        z_bottom(n)
+        self.notes.append(n)
+        line = random.choice(NOTE_DROP)
+        if line:
+            self.say(line, 4)
+        self.set_mood("wink", 1.2)
+
+    def note_closed(self, n):
+        if n in self.notes:
+            self.notes.remove(n)
+        line = random.choice(NOTE_GONE)
+        if line and self.state not in ("sleep", "alert") and not self.bubble.isVisible() and not self.calm():
+            self.say(line, 3)
 
     def choose_next(self):
         h = dt.datetime.now().hour
@@ -1456,6 +1678,8 @@ class Dragon(QWidget):
         if not self.dragging and abs(d.x()) + abs(d.y()) > 5:
             self.dragging = True
             self.state = "drag"
+            if PRANKS and not self.calm() and random.random() < .5 and not self.bubble.isVisible():
+                self.say(random.choice(DRAG), 3)
         if self.dragging:
             self.x, self.y = self.clamp(w0.x() + d.x(), w0.y() + d.y())
 
@@ -1467,7 +1691,16 @@ class Dragon(QWidget):
         elif self.alert_until:
             self.hide_bubble()
             self.set_state("happy")
+        elif (PRANKS and not self.dodged and not self.calm() and not self.panel.isVisible()
+              and self.state not in ("sleep", "landing") and random.random() < .22):
+            self.dodged = True                       # увернулся, со второго раза сдастся
+            self.set_mood("wink", 1.5)
+            self.set_state("dodge")
+            self.say(random.choice(DODGE), 2.5)
         else:
+            if self.dodged and not self.panel.isVisible():
+                self.say(random.choice(GIVE_UP), 2.5)
+            self.dodged = False
             self.set_state("happy")
             self.toggle_panel()
         self.press = None
@@ -1522,6 +1755,73 @@ class Dragon(QWidget):
                 self.set_state("hover", 2)
         elif st == "drag":
             eyes, fs, fb, fa = "wow", 13, .1, .9
+        elif st == "dodge":
+            fs, fb, fa = 16, .1, .9
+            if self.move_towards(*self.target, CHASE_SPEED * 1.6) or now > self.until:
+                self.set_state("hover", 3)
+        elif st == "sneeze":
+            t = now - self.sneeze_from
+            eyes = "wow" if t < .7 else ("closed" if t < 1.0 else "brow")
+            bob = -6 if .7 < t < 1.0 else 0
+            if t > 1.0 and not getattr(self, "_sneezed", False):
+                self._sneezed = True
+                self.say(random.choice(SNEEZE), 3)
+            if now > self.until:
+                self._sneezed = False
+                self.set_state("hover", 3)
+        elif st == "peek":
+            fs, fb, fa = 9, .2, .8
+            w = self.work
+            if self.peek_phase == 1:                         # улетел за край
+                if self.move_towards(*self.target, FLY_SPEED * 1.6):
+                    self.peek_phase = 2
+                    self.peek_t = now + random.uniform(2, 4)
+            elif self.peek_phase == 2 and now > self.peek_t:  # выглядывает
+                self.peek_phase = 3
+                self.target = ((w.left() - self.W * .5) if self.peek_side < 0 else (w.right() - self.W * .5),
+                               self.target[1])
+            elif self.peek_phase == 3:
+                if self.move_towards(*self.target, FLY_SPEED):
+                    self.peek_phase = 4
+                    self.peek_t = now + random.uniform(4, 7)
+                    self.facing = 1 if self.peek_side < 0 else -1
+                    self.set_mood(random.choice(("brow", "wink")), 2.5)
+                    self.say(random.choice(PEEK), 3)
+            elif self.peek_phase == 4:
+                self.facing = 1 if self.peek_side < 0 else -1
+                c = QCursor.pos()
+                near = math.hypot(c.x() - (self.x + self.W / 2), c.y() - (self.y + self.H / 2)) < 140
+                if near or now > self.peek_t:
+                    if near:
+                        self.say(random.choice(CAUGHT), 2.5)
+                        self.set_mood("wink", 1.5)
+                    self.set_state("fly")
+            if now > self.until:
+                self.set_state("fly")
+        elif st == "note":
+            fs, fb, fa = 8, .2, .8
+            if self.move_towards(*self.target, FLY_SPEED * 1.3) or now > self.until:
+                self.drop_note()
+                self.set_state("fly")
+        elif st == "sit":
+            if not self.panel.isVisible():
+                self.set_state("hover", 2)
+            else:
+                g = self.panel.geometry()
+                tx = g.center().x() + 40 - self.W / 2
+                ty = g.top() - (self.TOP + (31 - Y0) * PIX) + 14
+                if self.move_towards(tx, ty, FLY_SPEED * 1.5):
+                    fold, bob = True, 0
+                    if not getattr(self, "_sat", False):
+                        self._sat = True
+                        self.say("я тут посижу. не обращай внимания.", 3)
+                    if int(now / 3) % 4 == 0:
+                        eyes = "brow"
+                else:
+                    fs, fb, fa = 8, .2, .8
+                if now > self.until:
+                    self._sat = False
+                    self.set_state("fly")
         elif st == "alert":
             fs, fb, fa = 10, .2, .8
             eyes = "happy" if int(now * 2) % 2 else "open"
@@ -1543,6 +1843,12 @@ class Dragon(QWidget):
         d = math.hypot(dx, dy) + 1
         k = min(1, d / 220)
         look = (dx / d * k, dy / d * k)
+
+        # хулиганское выражение лица поверх обычного
+        if eyes == "open" and now < self.mood[1]:
+            eyes = self.mood[0]
+        if (PRANKS and st == "hover" and eyes == "open" and d < 110 and random.random() < .004):
+            self.set_mood(random.choice(("wink", "brow")), 1.4)
 
         # моргание
         blink = 1.0
@@ -1572,7 +1878,7 @@ class Dragon(QWidget):
         lx = P["look"][0]
         sig = (P["eyes"], P["blink"] < .5, P["fold"], P["flap"] > .3, P["tail"] > 0,
                round(lx * 3), P["mouth"], int(round(P["bob"])), self.facing)
-        if sig != getattr(self, "_sig", None) or st in ("happy", "alert", "sleep"):
+        if sig != getattr(self, "_sig", None) or st in ("happy", "alert", "sleep", "sneeze"):
             self._sig = sig
             self.update()
 
@@ -1587,7 +1893,15 @@ class Dragon(QWidget):
         if P.running and P.phase == "work" and P.left() <= 60:
             if getattr(self, "_warned", None) != P.end:
                 self._warned = P.end
-                self.say("осталась минута.", 5)
+                self.say("минута. держись, я почти горжусь.", 5)
+
+        # хулиганства (во время рабочей помидорки ведёт себя прилично)
+        if PRANKS and now > self.next_prank:
+            if st in ("hover", "fly") and not self.calm() and not self.alert_until and not self.bubble.isVisible():
+                self.prank()
+                self.next_prank = now + self.prank_gap()
+            else:
+                self.next_prank = now + 90
 
         # фразочки (во время рабочей помидорки молчит)
         if now > self.next_phrase:
@@ -1609,6 +1923,8 @@ class Dragon(QWidget):
             z_bottom(self)
             if self.bubble.isVisible():
                 z_bottom(self.bubble)
+            for n in self.notes:
+                z_bottom(n)
             self.last_push = now
 
         want = 100 if st == "sleep" else 33
@@ -1628,6 +1944,23 @@ class Dragon(QWidget):
         draw_dragon(p, self.params)
         p.restore()
         now = time.monotonic()
+        if self.state == "sneeze":
+            t = now - self.sneeze_from - .7
+            if 0 < t < 1.1:                     # огненный «апчхи»
+                mx, my = HEAD_X, (16.5 - Y0) * PIX
+                for i, col in enumerate(("#ffe27a", "#ff9b3d", "#ff5a2e", "#8a7a99")):
+                    k = max(0, min(1, (t - i * .08) / .9))
+                    if 0 < k < 1:
+                        p.setOpacity(1 - k)
+                        p.setPen(Qt.NoPen)
+                        p.setBrush(QColor(col))
+                        for j in range(5):
+                            a = j * 1.26 + i
+                            rr = (6 + k * 26) * (1 + .15 * j % 2)
+                            sz = PIX * (2 - k)
+                            p.drawRect(QRectF(mx + math.cos(a) * rr - sz / 2, my + 10 + k * 18 + math.sin(a) * rr * .6,
+                                              sz, sz))
+                p.setOpacity(1)
         if self.state in ("happy", "alert"):
             t = (now - self.happy_from) % 1.4
             p.setOpacity(max(0, 1 - t / 1.4))

@@ -23,3 +23,8 @@ PHRASES_EXTRA = [
 PHRASES_TIME_EXTRA = {
     "night": ["уже {time}. сериал подождёт до завтра."],
 }
+
+# хулиганские фразы, добавятся к общим (если PRANKS = True)
+PHRASES_BADBOY_EXTRA = [
+    "скучала? можешь не отвечать, я знаю.",
+]
