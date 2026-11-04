@@ -16,11 +16,11 @@ Dragzy: фиолетовый пиксельный дракончик для ра
 - его можно перетаскивать мышкой; по правому клику открывается меню.
 
 Безопасность: Python и библиотека Qt (PySide6).
-В интернет ходит раз в день за прогнозом погоды на api.open-meteo.com
-(без аккаунта, отправляются только координаты города).
-Пишет только один файл, статистику: %APPDATA%\\Dragzy\\stats.json.
+В интернет ходит раз в день за прогнозом погоды через Open-Meteo
+(без аккаунта; название города отправляется один раз, дальше только координаты).
+Пишет только свои файлы в %APPDATA%\\Dragzy: settings.json и stats.json.
 Не ставится в автозагрузку, не читает клавиатуру и окна.
-Личные настройки лежат в personal.py рядом с этим файлом (пример: personal.example.py).
+Имя, город и характер спрашиваются при первом запуске. Свои фразы можно добавить в personal.py.
 """
 import datetime as dt
 import json
@@ -31,6 +31,7 @@ import re
 import sys
 import threading
 import time
+import urllib.parse
 import urllib.request
 
 IS_WIN = sys.platform.startswith("win")
@@ -38,10 +39,10 @@ IS_WIN = sys.platform.startswith("win")
 try:
     from PySide6.QtCore import (Qt, QEasingCurve, QPoint, QPointF, QPropertyAnimation, QRect,
                                 QRectF, QTimer)
-    from PySide6.QtGui import (QBrush, QConicalGradient, QImage, QColor, QCursor, QFont, QFontInfo, QFontMetrics, QGuiApplication,
+    from PySide6.QtGui import (QBrush, QConicalGradient, QImage, QPixmap, QColor, QCursor, QFont, QFontInfo, QFontMetrics, QGuiApplication,
                                QLinearGradient, QPainter, QPainterPath, QPen, QPolygonF,
                                QRadialGradient)
-    from PySide6.QtWidgets import (QApplication, QFrame, QHBoxLayout, QLabel, QMenu,
+    from PySide6.QtWidgets import (QApplication, QFrame, QHBoxLayout, QLabel, QLineEdit, QMenu,
                                    QProgressBar, QPushButton, QStackedWidget, QVBoxLayout, QWidget)
 except ImportError:
     try:
@@ -56,14 +57,19 @@ except ImportError:
     sys.exit(1)
 
 # ================================================================= настройки
+# имя, город, род обращения и характер спрашиваются при первом запуске
+# и хранятся в %APPDATA%\Dragzy\settings.json (меняются через меню «настройки»)
 PET_NAME = "Слива"
-USER_NAME = "друг"            # как дракончик к тебе обращается (см. personal.py)
+USER_NAME = "друг"
+GENDER = "n"                 # f / m / n: как обращаться (она / он / без рода)
+MODE = "bold"                # bold: нахальный; calm: спокойный
+CITY_NAME = ""
 DESKTOP_ONLY = True          # True, живёт под окнами; False, поверх всех окон
 WEATHER = True               # False, совсем без интернета
-CITY = (55.7558, 37.6173)    # Москва
+CITY = None                  # координаты, находятся по названию города
 PHRASE_EVERY_MIN = (15, 25)  # фразочка раз в 15-25 минут
 SOUND = True
-PRANKS = True                # хулиганства: увороты, записки, прятки, чих огнём
+PRANKS = True                # хулиганства (включены в нахальном характере)
 FLY_SPEED = 2.6
 CHASE_SPEED = 6.0
 
@@ -347,6 +353,7 @@ PHRASES_ANY = [
     "закрой пару лишних вкладок, голове станет просторнее.",
     "если задача пугает, открой её на две минуты. обычно дальше идёт само.",
     "сегодня сделано больше, чем кажется.",
+    "ты сегодня {g:сделала|сделал} больше, чем кажется.",
 ]
 
 PHRASES_BADBOY = [
@@ -365,6 +372,9 @@ PHRASES_BADBOY = [
     "я загадочный. а ещё я знаю, что у тебя открыто слишком много вкладок.",
     "легенды не торопятся. но и не прокрастинируют три часа подряд.",
     "ахх, опять ты. ладно, рад. немного.",
+    "{g:скучала|скучал}? можешь не отвечать, я знаю.",
+    "ты {g:главная героиня|главный герой} этого сериала. я просто сложный персонаж второго плана.",
+    "я видел, как ты сегодня {g:старалась|старался}. никому не скажу. это наш секрет.",
     "умный не тот, кто всё знает. умный тот, кто вовремя ложится спать. я, например.",
 ]
 
@@ -403,6 +413,7 @@ PHRASES_TIME = {
     ],
     "day": [
         "середина дня. обед уже был?",
+        "середина дня. ты сегодня {g:ела|ел}?",
         "после обеда концентрация падает, это нормально. помидорка поможет собраться.",
         "уже {time}. можно закрыть одну маленькую задачу.",
     ],
@@ -426,12 +437,11 @@ PHRASES_WEEKDAY = {
 }
 
 
-# личные настройки: если рядом лежит personal.py, берём имя и фразы оттуда
+# свои фразы: если рядом лежит personal.py, добавляем их (имя и город берутся из настроек)
 try:
     import personal as _me
-    USER_NAME = getattr(_me, "USER_NAME", USER_NAME)
+    USER_NAME = getattr(_me, "USER_NAME", USER_NAME)      # только как подсказка при знакомстве
     PET_NAME = getattr(_me, "PET_NAME", PET_NAME)
-    CITY = getattr(_me, "CITY", CITY)
     PHRASES_YOU = list(getattr(_me, "PHRASES_YOU", PHRASES_YOU))
     PHRASES_ANY = PHRASES_ANY + list(getattr(_me, "PHRASES_EXTRA", []))
     PHRASES_BADBOY = PHRASES_BADBOY + list(getattr(_me, "PHRASES_BADBOY_EXTRA", []))
@@ -441,6 +451,44 @@ except ImportError:
     pass
 
 
+_G = re.compile(r"\{g:([^|}]*)\|([^|}]*)(?:\|([^}]*))?\}")
+
+
+def gtext(text):
+    """{g:она|он} или {g:она|он|без рода}. фраза без варианта для «без рода» пропускается (None)."""
+    if "{g:" not in text:
+        return text
+    if GENDER == "n" and any(m.group(3) is None for m in _G.finditer(text)):
+        return None
+    i = {"f": 1, "m": 2, "n": 3}[GENDER]
+    return _G.sub(lambda m: m.group(i) if m.group(i) is not None else m.group(1), text)
+
+
+REACT = {  # (нахальный, спокойный)
+    "greet": ("привет, {name}. я {pet}. кликни по мне, будет помодоро. если поймаешь.",
+              "привет, {name}. я {pet}. кликни по мне, и откроется помодоро."),
+    "hello": ("приятно познакомиться, {name}. иногда буду хулиганить. ты {g:предупреждена|предупреждён|предупреждены}.",
+              "приятно познакомиться, {name}. я рядом, если что."),
+    "start": ("поехали. {work} минут, и меня тут нет. почти.", "поехали. {work} минут фокуса, я не буду отвлекать."),
+    "resume": ("продолжаем. я даже не заметил паузу.", "продолжаем."),
+    "pause": ("пауза? понимаю. даже легенды отдыхают.", "пауза. таймер подождёт."),
+    "reset": ("сброс. красиво начать заново тоже талант.", "таймер сброшен. начнём, когда будет удобно."),
+    "minute": ("минута. держись, я почти горжусь.", "осталась минута."),
+    "rest": ("помидорка всё. отдых {short} мин: встань, попей воды, посмотри вдаль. я прослежу.",
+             "помидорка готова. отдых {short} мин: встань, попей воды, посмотри вдаль."),
+    "long": ("{every} помидорки подряд. длинный отдых, {long} минут. заслуженно, не спорь.",
+             "{every} помидорки подряд. теперь длинный отдых, {long} минут."),
+    "work": ("перерыв окончен. возвращаемся, звезда. помидорка {k} из {every}.",
+             "отдых закончился, пора работать. помидорка {k} из {every}."),
+    "record": ("новый рекорд дня: {n}. я, конечно, знал. отдых {r} мин.", "новый рекорд дня: {n}. отдых {r} мин."),
+}
+
+
+def R(key, **kw):
+    t = gtext(REACT[key][0 if MODE == "bold" else 1]) or REACT[key][1]
+    return t.format(name=USER_NAME, pet=PET_NAME, **kw)
+
+
 def time_phrase(now):
     h = now.hour
     part = "morning" if 5 <= h < 12 else "day" if 12 <= h < 18 else "evening" if 18 <= h < 23 else "night"
@@ -448,20 +496,24 @@ def time_phrase(now):
 
 
 def pick_phrase(now, weather_tips):
-    r = random.random()
-    if weather_tips and r < .2:
-        text = random.choice(weather_tips)
-    elif r < .45:
-        text = time_phrase(now)
-    elif r < .6:
-        text = random.choice(PHRASES_YOU)
-    elif PRANKS and r < .78:
-        text = random.choice(PHRASES_BADBOY)
-    elif r < .84 and now.weekday() in PHRASES_WEEKDAY:
-        text = PHRASES_WEEKDAY[now.weekday()]
-    else:
-        text = random.choice(PHRASES_ANY)
-    return text.format(name=USER_NAME, time=now.strftime("%H:%M"))
+    for _ in range(12):
+        r = random.random()
+        if weather_tips and r < .2:
+            text = random.choice(weather_tips)
+        elif r < .45:
+            text = time_phrase(now)
+        elif r < .6:
+            text = random.choice(PHRASES_YOU)
+        elif PRANKS and r < .78:
+            text = random.choice(PHRASES_BADBOY)
+        elif r < .84 and now.weekday() in PHRASES_WEEKDAY:
+            text = PHRASES_WEEKDAY[now.weekday()]
+        else:
+            text = random.choice(PHRASES_ANY)
+        text = gtext(text)
+        if text:
+            return text.format(name=USER_NAME, time=now.strftime("%H:%M"))
+    return "попей воды."
 
 
 # ================================================================= погода
@@ -505,15 +557,71 @@ def weather_tips(data, now):
     return tips
 
 
+def geocode(name):
+    url = ("https://geocoding-api.open-meteo.com/v1/search?count=1&language=ru&format=json&name="
+           + urllib.parse.quote(name))
+    req = urllib.request.Request(url, headers={"User-Agent": "desk-dragon"})
+    with urllib.request.urlopen(req, timeout=10) as r:
+        res = json.loads(r.read().decode("utf-8")).get("results") or []
+    return (res[0]["latitude"], res[0]["longitude"]) if res else None
+
+
 def fetch_weather():
+    global CITY
+    if not CITY and CITY_NAME:
+        CITY = geocode(CITY_NAME)
+        if CITY:
+            s = load_settings() or {}
+            s["coords"] = list(CITY)
+            save_settings(s)
+    if not CITY:
+        raise RuntimeError("город не задан")
     lat, lon = CITY
     url = ("https://api.open-meteo.com/v1/forecast?latitude=%s&longitude=%s"
            "&daily=weather_code,temperature_2m_max,temperature_2m_min,"
            "precipitation_probability_max,wind_speed_10m_max"
-           "&timezone=Europe%%2FMoscow&forecast_days=2" % (lat, lon))
+           "&timezone=auto&forecast_days=2" % (lat, lon))
     req = urllib.request.Request(url, headers={"User-Agent": "desk-dragon"})
     with urllib.request.urlopen(req, timeout=10) as r:
         return json.loads(r.read().decode("utf-8"))
+
+
+# ================================================================= настройки (знакомство)
+def app_dir():
+    base = os.environ.get("APPDATA")
+    return os.path.join(base, "Dragzy") if base else os.path.join(os.path.expanduser("~"), ".dragzy")
+
+
+def load_settings():
+    try:
+        with open(os.path.join(app_dir(), "settings.json"), encoding="utf-8") as f:
+            return json.load(f)
+    except Exception:
+        return None
+
+
+def save_settings(d):
+    try:
+        os.makedirs(app_dir(), exist_ok=True)
+        path = os.path.join(app_dir(), "settings.json")
+        with open(path + ".tmp", "w", encoding="utf-8") as f:
+            json.dump(d, f, ensure_ascii=False, indent=1)
+        os.replace(path + ".tmp", path)
+    except Exception:
+        pass
+
+
+def apply_settings(d):
+    global USER_NAME, PET_NAME, GENDER, MODE, CITY_NAME, CITY, PRANKS
+    USER_NAME = (d.get("name") or "друг").strip()
+    PET_NAME = (d.get("pet") or "Слива").strip()
+    GENDER = d.get("gender", "n")
+    MODE = d.get("mode", "bold")
+    PRANKS = MODE == "bold"
+    new_city = (d.get("city") or "").strip()
+    if new_city != CITY_NAME:
+        CITY = tuple(d["coords"]) if d.get("coords") else None
+    CITY_NAME = new_city
 
 
 # ================================================================= звук
@@ -657,8 +765,7 @@ class Stats:
     """статистика помидорок: один json-файл в %APPDATA%\\Dragzy (или ~/.dragzy)."""
 
     def __init__(self):
-        base = os.environ.get("APPDATA") or os.path.join(os.path.expanduser("~"), ".dragzy")
-        self.dir = os.path.join(base, "Dragzy") if os.environ.get("APPDATA") else base
+        self.dir = app_dir()
         self.path = os.path.join(self.dir, "stats.json")
         self.days = {}
         try:
@@ -1098,7 +1205,7 @@ class Panel(QWidget):
         lay.setSpacing(8)
 
         head = QHBoxLayout()
-        title = QLabel(f"{PET_NAME} · помодоро", objectName="title")
+        self.title = title = QLabel(f"{PET_NAME} · помодоро", objectName="title")
         close = QPushButton("×", objectName="close")
         close.clicked.connect(self.close_anim)
         self.tab = QPushButton("статистика", objectName="tab")
@@ -1341,11 +1448,168 @@ class StickyNote(QWidget):
             self.t.start(33)
 
 
+SETUP_CSS = f"""
+#card {{ background: qlineargradient(x1:0, y1:0, x2:0, y2:1, stop:0 #2c1b47, stop:1 {UI_BG});
+         border: 2px solid #4a3172; border-radius: 22px; }}
+QLabel {{ color: {UI_TEXT}; background: transparent; }}
+#h1 {{ font: 600 15pt "Segoe UI"; }}
+#sub {{ color: {UI_MUTED}; font: 9pt "Segoe UI"; }}
+#q {{ color: {UI_TEXT}; font: 600 10pt "Segoe UI"; }}
+QLineEdit {{ background: {UI_CARD}; color: {UI_TEXT}; border: 2px solid transparent; border-radius: 12px;
+            padding: 8px 12px; font: 10pt "Segoe UI"; selection-background-color: {UI_ORANGE}; }}
+QLineEdit:focus {{ border-color: {UI_ORANGE}; }}
+QPushButton {{ background: {UI_CARD}; color: {UI_TEXT}; border: 2px solid transparent; border-radius: 12px;
+              padding: 8px 10px; font: 10pt "Segoe UI"; }}
+QPushButton:hover {{ background: #47316e; }}
+QPushButton:checked {{ border-color: {UI_ORANGE}; background: #3d2760; }}
+#mode {{ text-align: left; padding: 10px 12px; }}
+#close {{ background: transparent; color: {UI_MUTED}; font: 14pt "Segoe UI"; padding: 0 6px; border: none; }}
+"""
+
+
+class Setup(QWidget):
+    """знакомство: имя, род обращения, город, имя дракончика, характер."""
+
+    def __init__(self, current, on_done, first=True):
+        super().__init__(None, Qt.FramelessWindowHint | Qt.Tool | Qt.WindowStaysOnTopHint)
+        self.setAttribute(Qt.WA_TranslucentBackground)
+        self.on_done = on_done
+        self.setStyleSheet(SETUP_CSS)
+        outer = QVBoxLayout(self)
+        outer.setContentsMargins(6, 6, 6, 6)
+        card = QFrame(objectName="card")
+        outer.addWidget(card)
+        lay = QVBoxLayout(card)
+        lay.setContentsMargins(22, 16, 22, 20)
+        lay.setSpacing(8)
+
+        top = QHBoxLayout()
+        self.face = QLabel()
+        self.face.setFixedSize(92, 74)
+        top.addWidget(self.face)
+        tt = QVBoxLayout()
+        tt.addWidget(QLabel("давай познакомимся" if first else "настройки", objectName="h1"))
+        sub = QLabel("полминуты. потом всё можно поменять в меню, правый клик по дракончику.", objectName="sub")
+        sub.setWordWrap(True)
+        tt.addWidget(sub)
+        top.addLayout(tt, 1)
+        if not first:
+            close = QPushButton("×", objectName="close")
+            close.clicked.connect(self.close)
+            top.addWidget(close, 0, Qt.AlignTop)
+        lay.addLayout(top)
+
+        def q(text):
+            lay.addSpacing(4)
+            lay.addWidget(QLabel(text, objectName="q"))
+
+        q("как тебя зовут?")
+        self.name = QLineEdit(current.get("name", ""))
+        self.name.setPlaceholderText("имя или как тебя называть")
+        lay.addWidget(self.name)
+
+        q("как к тебе обращаться?")
+        self.gender = self.segmented([("f", "она"), ("m", "он"), ("n", "без рода")], current.get("gender", "f"), lay)
+
+        q("твой город, для погоды")
+        self.city = QLineEdit(current.get("city", ""))
+        self.city.setPlaceholderText("например, москва. пусто, если без погоды")
+        lay.addWidget(self.city)
+
+        q("как назовёшь меня?")
+        self.pet = QLineEdit(current.get("pet", "Слива"))
+        lay.addWidget(self.pet)
+
+        q("какой у меня характер?")
+        self.mode = {}
+        row = QHBoxLayout()
+        for key, title, desc in (("bold", "нахальный", "дерзит, подмигивает,\nоставляет записки"),
+                                 ("calm", "спокойный", "только забота\nи помодоро")):
+            b = QPushButton(f"{title}\n{desc}", objectName="mode")
+            b.setCheckable(True)
+            b.clicked.connect(lambda _=0, k=key: self.pick_mode(k))
+            row.addWidget(b)
+            self.mode[key] = b
+        lay.addLayout(row)
+        self.mode_key = current.get("mode", "bold")
+        self.pick_mode(self.mode_key)
+
+        lay.addSpacing(8)
+        done = QPushButton("готово" if first else "сохранить")
+        done.setStyleSheet(main_btn_css(UI_ORANGE, "#ff9433"))
+        done.clicked.connect(self.finish)
+        lay.addWidget(done)
+        self.setFixedWidth(400)
+        self._drag = None
+
+        self.t = QTimer(self)
+        self.t.timeout.connect(self.blink)
+        self.t.start(400)
+
+    def segmented(self, items, cur, lay):
+        row = QHBoxLayout()
+        btns = {}
+        for key, label in items:
+            b = QPushButton(label)
+            b.setCheckable(True)
+            b.setChecked(key == cur)
+            b.clicked.connect(lambda _=0, k=key: [x.setChecked(kk == k) for kk, x in btns.items()])
+            row.addWidget(b)
+            btns[key] = b
+        lay.addLayout(row)
+        return btns
+
+    def pick_mode(self, key):
+        self.mode_key = key
+        for k, b in self.mode.items():
+            b.setChecked(k == key)
+        self.draw_face()
+
+    def draw_face(self, blink=False):
+        eyes = ("cool" if self.mode_key == "bold" else "happy") if not blink else "blink"
+        img = grid_image(make_frame(eyes, "up", 0, 0, None))
+        self.face.setPixmap(QPixmap.fromImage(img).scaled(img.width() * 2, img.height() * 2))
+
+    def blink(self):
+        if self.mode_key == "calm" and random.random() < .12:
+            self.draw_face(True)
+            QTimer.singleShot(160, self.draw_face)
+        elif self.mode_key == "bold" and random.random() < .08:
+            img = grid_image(make_frame("wink", "down", 0, 0, None))
+            self.face.setPixmap(QPixmap.fromImage(img).scaled(img.width() * 2, img.height() * 2))
+            QTimer.singleShot(500, self.draw_face)
+
+    def finish(self):
+        g = next(k for k, b in self.gender.items() if b.isChecked()) if any(
+            b.isChecked() for b in self.gender.values()) else "n"
+        d = load_settings() or {}
+        if (d.get("city") or "").strip().lower() != self.city.text().strip().lower():
+            d.pop("coords", None)
+        d.update(name=self.name.text().strip() or "друг", gender=g, city=self.city.text().strip(),
+                 pet=self.pet.text().strip() or "Слива", mode=self.mode_key)
+        save_settings(d)
+        apply_settings(d)
+        self.t.stop()
+        self.close()
+        self.on_done()
+
+    def mousePressEvent(self, e):
+        if e.button() == Qt.LeftButton:
+            self._drag = e.globalPosition().toPoint() - self.frameGeometry().topLeft()
+
+    def mouseMoveEvent(self, e):
+        if self._drag is not None:
+            self.move(e.globalPosition().toPoint() - self._drag)
+
+    def mouseReleaseEvent(self, e):
+        self._drag = None
+
+
 class Dragon(QWidget):
     TOP = 40       # место сверху под сердечко и «z»
     SCALE = 1
 
-    def __init__(self):
+    def __init__(self, greet=True):
         super().__init__(None, base_flags())
         self.setAttribute(Qt.WA_TranslucentBackground)
         self.setAttribute(Qt.WA_ShowWithoutActivating)
@@ -1405,6 +1669,7 @@ class Dragon(QWidget):
         self.menu.addAction("статистика", self.open_stats)
         self.menu.addAction("скажи что-нибудь", lambda: self.say(self.make_phrase()))
         self.menu.addAction("уложить спать", lambda: self.set_state("landing"))
+        self.menu.addAction("настройки", self.open_setup)
         self.menu.addSeparator()
         self.menu.addAction("выход", QApplication.quit)
 
@@ -1414,8 +1679,8 @@ class Dragon(QWidget):
         self.timer = QTimer(self)
         self.timer.timeout.connect(self.tick)
         self.timer.start(33)
-        QTimer.singleShot(2500, lambda: self.say(
-            f"привет, {USER_NAME}. я {PET_NAME}. кликни по мне, будет помодоро. если поймаешь."))
+        if greet:
+            QTimer.singleShot(2500, lambda: self.say(R("greet")))
         self.check_weather()
         self.wtimer = QTimer(self)
         self.wtimer.timeout.connect(self.check_weather)
@@ -1471,27 +1736,20 @@ class Dragon(QWidget):
     # ---------------- помодоро
     def pomo_event(self, ev):
         P = self.pomo
-        quick = {
-            "start": (f"поехали. {P.work} минут, и меня тут нет. почти.", "happy"),
-            "resume": ("продолжаем. я даже не заметил паузу.", "happy"),
-            "pause": ("пауза? понимаю. даже легенды отдыхают.", "hover"),
-            "reset": ("сброс. красиво начать заново тоже талант.", "dizzy"),
-        }
+        quick = {"start": "happy", "resume": "happy", "pause": "hover", "reset": "dizzy"}
         if ev in quick:
-            text, st = quick[ev]
+            st = quick[ev]
             self.set_state(st, 3) if st == "hover" else self.set_state(st)
-            self.say(text, 4)
+            self.say(R(ev, work=P.work), 4)
             return
         if ev == "rest" and P.record:
             P.record = False
-            text = f"новый рекорд дня: {P.done_total} {plural(P.done_total, 'помидорка', 'помидорки', 'помидорок')}. я, конечно, знал. отдых {P.short if P.phase == 'short' else P.long} мин."
+            text = R("record", n=f"{P.done_total} {plural(P.done_total, 'помидорка', 'помидорки', 'помидорок')}",
+                     r=P.short if P.phase == "short" else P.long)
         elif ev == "rest":
-            if P.phase == "long":
-                text = f"{P.every} помидорки подряд. длинный отдых, {P.long} минут. заслуженно, не спорь."
-            else:
-                text = f"помидорка всё. отдых {P.short} мин: встань, попей воды, посмотри вдаль. я прослежу."
+            text = R("long", every=P.every, long=P.long) if P.phase == "long" else R("rest", short=P.short)
         else:
-            text = f"перерыв окончен. возвращаемся, звезда. помидорка {P.round_no()} из {P.every}."
+            text = R("work", k=P.round_no(), every=P.every)
         play_sound(ev)
         self.alert_until = time.monotonic() + 25
         z_top(self, True)
@@ -1505,6 +1763,22 @@ class Dragon(QWidget):
             z_top(self.bubble, False)
             z_bottom(self)
         self.set_state("hover", 3)
+
+    def open_setup(self):
+        cur = dict(name=USER_NAME, gender=GENDER, city=CITY_NAME, pet=PET_NAME, mode=MODE)
+        self.setup = Setup(cur, self.setup_done, first=False)
+        g = self.work
+        self.setup.adjustSize()
+        self.setup.move(g.center().x() - self.setup.width() // 2, g.center().y() - self.setup.height() // 2)
+        self.setup.show()
+        self.setup.activateWindow()
+
+    def setup_done(self):
+        self.panel.title.setText(f"{PET_NAME} · помодоро")
+        self.weather_day = None
+        self.check_weather()
+        self.set_state("happy")
+        self.say(R("hello"), 6)
 
     def open_stats(self):
         if not self.panel.isVisible():
@@ -1893,7 +2167,7 @@ class Dragon(QWidget):
         if P.running and P.phase == "work" and P.left() <= 60:
             if getattr(self, "_warned", None) != P.end:
                 self._warned = P.end
-                self.say("минута. держись, я почти горжусь.", 5)
+                self.say(R("minute"), 5)
 
         # хулиганства (во время рабочей помидорки ведёт себя прилично)
         if PRANKS and now > self.next_prank:
@@ -1982,12 +2256,27 @@ def main():
     if IS_WIN:
         try:
             import ctypes
-            ctypes.windll.shell32.SetCurrentProcessExplicitAppUserModelID("desk.dragon.sliva")
+            ctypes.windll.shell32.SetCurrentProcessExplicitAppUserModelID("desk.dragon.dragzy")
         except Exception:
             pass
     app = QApplication(sys.argv)
     app.setQuitOnLastWindowClosed(False)
-    d = Dragon()
+    holder = {}
+    saved = load_settings()
+    if saved:
+        apply_settings(saved)
+        holder["d"] = Dragon()
+    else:
+        def start():
+            d = holder["d"] = Dragon(greet=False)
+            QTimer.singleShot(1200, lambda: (d.set_state("happy"), d.say(R("hello"), 7)))
+        cur = dict(name=USER_NAME if USER_NAME != "друг" else "", gender="f", city="", pet=PET_NAME, mode="bold")
+        w = holder["setup"] = Setup(cur, start, first=True)
+        w.adjustSize()
+        g = QGuiApplication.primaryScreen().availableGeometry()
+        w.move(g.center().x() - w.width() // 2, g.center().y() - w.height() // 2)
+        w.show()
+        w.activateWindow()
     sys.exit(app.exec())
 
 
