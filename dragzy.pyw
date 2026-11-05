@@ -317,6 +317,36 @@ def draw_pixels(p, img, x, y, scale=PIX):
     p.drawImage(QRectF(x, y, img.width() * scale, img.height() * scale), img)
 
 
+NOTE_SPRITES = [
+    ["...KKK.", "...KOOK", "...KOK.", "...KO..", ".KKKO..", "KOOOK..", "KOOOK..", ".KKK..."],
+    [".KKKKKK", ".KGGGGK", ".KGKKGK", ".KG..KG", "KKG.KKG", "GGGKGGG", "GGGKGGG", "KKK.KKK"],
+]
+
+
+def draw_outfit(p, kind, bob):
+    """пиксельные аксессуары поверх дракончика (в координатах спрайта)."""
+    def px(x, y, w, h, col):
+        p.fillRect(QRectF((x - X0) * PIX, (y - Y0) * PIX + bob, w * PIX, h * PIX), QColor(col))
+    K = PAL["K"]
+    if kind == "beret":
+        px(11, 1, 13, 1, K); px(10, 2, 15, 2, K); px(11, 4, 13, 1, K); px(16, 0, 3, 1, K); px(17, -1, 1, 1, K)
+        px(12, 1, 11, 1, "#d8344f"); px(11, 2, 13, 1, "#c0283f"); px(11, 3, 13, 1, "#a8203a")
+        px(13, 1, 3, 1, "#ef5a72")
+    elif kind == "scarf":
+        px(10, 18.5, 17, 2.5, K)
+        for x in range(11, 26):
+            px(x, 19, 1, 1.5, "#ff7b00" if (x // 2) % 2 else "#fff0c8")
+        px(20, 20.5, 4, 5, K)
+        for y in range(21, 25):
+            px(21, y, 2, 1, "#ff7b00" if y % 2 else "#fff0c8")
+    elif kind == "bow":
+        px(14.5, 18.8, 8, 3.4, K)
+        px(15.5, 19.4, 2.5, 2.2, "#d8344f"); px(19, 19.4, 2.5, 2.2, "#d8344f"); px(18, 19.8, 1, 1.4, "#8f1a2d")
+    elif kind == "bag":
+        px(24, 19, 1, 3, K); px(27, 19, 1, 3, K); px(24, 19, 4, 1, K)
+        px(23, 21, 6, 4, K); px(24, 22, 4, 2, "#2b2b2b"); px(25, 22, 2, 1, "#e8c55a")
+
+
 def draw_dragon(p, s):
     eyes = s.get("eyes", "open")
     if eyes == "open" and s.get("blink", 1) < .5:
@@ -387,13 +417,52 @@ SNEEZE = ["пардон. аллергия на дедлайны.", "это бы�
 COOL = ["я знаю. можешь не говорить.", "очки? для солнца. какого? своего.", "не обращай внимания, я просто крутой."]
 NOTE_DROP = ["оставил кое-что на столе. не благодари.", "у тебя на столе послание. ищи.", ""]
 NOTE_GONE = ["эй, это было искусство.", "ну и ладно. напишу ещё.", ""]
-MOTIONS = [
-    "эта палата запретила бы дедлайны по понедельникам.",
-    "эта палата сделала бы дневной сон обязательным.",
-    "эта палата считает, что драконы лучшие питомцы.",
-    "эта палата отменила бы будильники.",
+OUTFITS = {
+    "beret": ["образ дня: берет. париж одобряет.", "берет надет. теперь я художник, а не дракон."],
+    "scarf": ["шарф. потому что осень и потому что красиво.", "оранжевый шарф к фиолетовой чешуе. смело? смело."],
+    "bow": ["бабочка. на случай, если сегодня бал.", "официальный стиль. сегодня я главный на рабочем столе."],
+    "bag": ["маленькая сумка. что внутри? секрет и одна конфета.", "аксессуар дня. носить с уверенностью."],
+}
+MUSIC = [
+    "мини-концерт на рабочем столе. билеты бесплатные.",
+    "эта песня посвящается твоему плейлисту.",
+    "пою, только когда никто не слышит. ты же не слышишь?",
+    "у меня абсолютный слух. абсолютно отсутствующий.",
 ]
-FLIP = ["фигура «дракон вверх ногами». судьи, оценки?", "вертикаль. держу хвост ровно.", "это не падение. это хореография."]
+IMPRO = [
+    "импро-сцена: мы застряли в лифте с жирафом. первая реплика твоя.",
+    "игра «да, и…». начинаю: я дракон, который боится мышей. продолжай.",
+    "сцена: ты продаёшь сны, я покупатель. что посоветуешь?",
+    "история по одному слову. моё: однажды.",
+    "импро-вызов: расскажи свой день так, будто это трейлер фильма.",
+]
+SCIENCE = [
+    "заходит нейтрон в бар: «сколько с меня?» бармен: «для вас без заряда».",
+    "гейзенберга останавливает гаишник: «знаете, с какой скоростью ехали?» «нет, зато знаю, где я».",
+    "шрёдингер мог бы ответить на сообщение. а мог и не ответить. пока не откроешь, не узнаешь.",
+    "сколько учёных нужно, чтобы вкрутить лампочку? один. и ещё десять, чтобы воспроизвести результат.",
+    "химики не спорят. они вступают в реакцию.",
+    "у статистиков не бывает плохих дней. бывают выбросы.",
+    "оптимист видит стакан наполовину полным, пессимист пустым, инженер видит, что стакан в два раза больше нужного.",
+    "p < 0.05. ты молодец, и это статистически значимо.",
+    "у меня нет контрольной группы, но я уверен: ты лучше всех.",
+    "дарвин бы гордился: ты адаптируешься даже к понедельникам.",
+    "ньютону на голову упало яблоко. мне на голову упала мысль, что пора пить чай.",
+]
+FLIRT = [
+    "ты сегодня хорошо выглядишь. откуда знаю? чувствую.",
+    "был бы я человеком, позвал бы тебя на кофе. а так просто подогрею его взглядом.",
+    "не смотри на меня так. я стесняюсь. нет, не стесняюсь.",
+    "у меня огонь в груди. с медицинской точки зрения изжога, но звучит романтично.",
+    "ты {g:улыбнулась|улыбнулся}? я засчитал.",
+    "мне нравится, как ты печатаешь. уверенно. по-драконьи.",
+    "я на тебя не смотрю. просто рабочий стол такой.",
+    "подмигиваю только тебе. ну и иногда своему отражению.",
+]
+NOTES_FLIRT = [
+    "ты сегодня хорошо выглядишь. записал, чтобы не забыть.",
+    "подмигнул тебе, пока ты не {g:видела|видел}.",
+]
 NOTES = [
     "тут был Слива",
     "я съел твою прокрастинацию. было невкусно.",
@@ -453,8 +522,13 @@ try:
     PHRASES_ANY = PHRASES_ANY + list(getattr(_me, "PHRASES_EXTRA", []))
     PHRASES_BADBOY = PHRASES_BADBOY + list(getattr(_me, "PHRASES_BADBOY_EXTRA", []))
     NOTES = NOTES + list(getattr(_me, "NOTES_EXTRA", []))
-    MOTIONS = MOTIONS + list(getattr(_me, "MOTIONS_EXTRA", []))
-    FLIP = FLIP + list(getattr(_me, "FLIP_EXTRA", []))
+    PHRASES_ANY = PHRASES_ANY + list(getattr(_me, "PHRASES_DORM", []))
+    MUSIC = MUSIC + list(getattr(_me, "MUSIC_EXTRA", []))
+    IMPRO = IMPRO + list(getattr(_me, "IMPRO_EXTRA", []))
+    SCIENCE = SCIENCE + list(getattr(_me, "SCIENCE_EXTRA", []))
+    FLIRT = FLIRT + list(getattr(_me, "FLIRT_EXTRA", []))
+    for _k, _lines in getattr(_me, "OUTFIT_EXTRA", {}).items():
+        OUTFITS.setdefault(_k, []).extend(_lines)
     for _part, _lines in getattr(_me, "PHRASES_TIME_EXTRA", {}).items():
         PHRASES_TIME.setdefault(_part, []).extend(_lines)
 except ImportError:
@@ -514,9 +588,11 @@ def pick_phrase(now, weather_tips):
             text = time_phrase(now)
         elif r < .6:
             text = random.choice(PHRASES_YOU)
-        elif PRANKS and r < .78:
-            text = random.choice(PHRASES_BADBOY)
-        elif r < .84 and now.weekday() in PHRASES_WEEKDAY:
+        elif r < .68:
+            text = random.choice(SCIENCE)
+        elif PRANKS and r < .84:
+            text = random.choice(FLIRT if random.random() < .3 else PHRASES_BADBOY)
+        elif r < .88 and now.weekday() in PHRASES_WEEKDAY:
             text = PHRASES_WEEKDAY[now.weekday()]
         else:
             text = random.choice(PHRASES_ANY)
@@ -1666,7 +1742,8 @@ class Dragon(QWidget):
         self.drag_said = False
         self.peek_phase = 0
         self.sneeze_from = 0
-        self.flip_from = 0
+        self.music_from = 0
+        self.outfit = (None, 0)
         self.next_prank = time.monotonic() + self.prank_gap()
 
         self.menu = QMenu()
@@ -1813,11 +1890,12 @@ class Dragon(QWidget):
         now = time.monotonic()
         self.state = st
         if st == "hover":
-            self.until = now + (dur or random.uniform(2, 6))
+            self.until = now + (dur or random.uniform(4, 12))
         elif st == "fly":
             w = self.work
-            self.target = (random.uniform(w.left(), w.right() - self.W),
-                           random.uniform(w.top() + 30, self.floor - 40))
+            dx, dy = random.uniform(-280, 280), random.uniform(-180, 180)
+            self.target = (min(max(self.x + dx, w.left()), w.right() - self.W),
+                           min(max(self.y + dy, w.top() + 30), self.floor - 40))
             self.until = now + 15
         elif st == "chase":
             self.until = now + 6
@@ -1856,9 +1934,9 @@ class Dragon(QWidget):
             self.until = now + 12
         elif st == "sit":
             self.until = now + 45
-        elif st == "flip":
-            self.flip_from = now
-            self.until = now + 4
+        elif st == "music":
+            self.music_from = now
+            self.until = now + 8
 
     # ---------------- хулиганства
     @staticmethod
@@ -1874,7 +1952,7 @@ class Dragon(QWidget):
         return P.running and P.phase == "work"
 
     def prank(self):
-        options = ["note", "peek", "sneeze", "cool", "wink", "motion", "flip"]
+        options = ["note", "peek", "sneeze", "cool", "wink", "outfit", "outfit", "music", "impro", "flirt"]
         if self.panel.isVisible():
             options += ["sit", "sit"]
         if len(self.notes) >= 3:
@@ -1889,17 +1967,33 @@ class Dragon(QWidget):
             self.set_state("hover", 3)
         elif kind == "sneeze":
             self.set_state("sneeze")
-        elif kind == "motion":
+        elif kind == "outfit":
+            k = random.choice(list(OUTFITS))
+            self.outfit = (k, time.monotonic() + random.uniform(60, 240))
+            self.set_state("happy")
+            line = gtext(random.choice(OUTFITS[k]))
+            if line:
+                self.say(line.format(name=USER_NAME), 5)
+        elif kind == "music":
+            self.set_state("music")
+            self.say(gtext(random.choice(MUSIC)) or MUSIC[0], 5)
+        elif kind == "impro":
             self.set_mood("brow", 4)
             self.set_state("hover", 9)
-            self.say(f"резолюция дня: «{random.choice(MOTIONS)}» у тебя 30 секунд на аргумент. я засекаю.", 9)
-        elif kind == "flip":
-            self.set_state("flip")
+            self.say((gtext(random.choice(IMPRO)) or IMPRO[0]).format(name=USER_NAME), 9)
+        elif kind == "flirt":
+            self.set_mood("wink", 2)
+            self.set_state("hover", 5)
+            self.say((gtext(random.choice(FLIRT)) or FLIRT[0]).format(name=USER_NAME), 5)
         else:
             self.set_state(kind)
 
     def drop_note(self):
-        n = StickyNote(random.choice(NOTES), self.note_closed)
+        pool = NOTES + NOTES_FLIRT if random.random() < .25 else NOTES
+        text = None
+        while not text:
+            text = gtext(random.choice(pool))
+        n = StickyNote(text.format(name=USER_NAME), self.note_closed)
         n.move(int(self.x + self.W / 2 - n.width() / 2), int(self.y + self.H * .55))
         n.show()
         z_bottom(n)
@@ -1922,12 +2016,13 @@ class Dragon(QWidget):
         focus = P.running and P.phase == "work"      # во время работы ведёт себя тише
         rest = P.running and P.phase in ("short", "long")
         sleepy = .35 if (h >= 23 or h < 7) else .15
+        # летает по столу вдвое меньше: больше зависает, полёты короче
         if focus:
-            weights = (("landing", .3), ("fly", .25), ("hover", .45))
+            weights = (("landing", .3), ("fly", .12), ("hover", .58))
         elif rest:
-            weights = (("chase", .35), ("fly", .45), ("hover", .2))
+            weights = (("chase", .18), ("fly", .22), ("hover", .6))
         else:
-            weights = (("landing", sleepy), ("fly", .5), ("chase", .12), ("hover", .38 - sleepy))
+            weights = (("landing", sleepy), ("fly", .25), ("chase", .06), ("hover", .69 - sleepy))
         r = random.random()
         for st, w in weights:
             r -= w
@@ -2018,7 +2113,7 @@ class Dragon(QWidget):
         elif st == "fly":
             fs, fb, fa = 8, .2, .8
             if self.move_towards(*self.target, FLY_SPEED) or now > self.until:
-                self.set_state("hover" if random.random() < .7 else "fly")
+                self.set_state("hover" if random.random() < .85 else "fly")
         elif st == "chase":
             fs, fb, fa = 11, .15, .85
             c = QCursor.pos()
@@ -2097,18 +2192,13 @@ class Dragon(QWidget):
             if self.move_towards(*self.target, FLY_SPEED * 1.3) or now > self.until:
                 self.drop_note()
                 self.set_state("fly")
-        elif st == "flip":
-            t = now - self.flip_from
-            eyes = "happy" if t > .5 else "wow"
-            fs, fb, fa = 6, .3, .6
-            if t > .6 and not getattr(self, "_flipsaid", False):
-                self._flipsaid = True
-                line = gtext(random.choice(FLIP))
-                if line:
-                    self.say(line.format(name=USER_NAME), 3.5)
+        elif st == "music":
+            t = now - self.music_from
+            fs, fb, fa = 9, .3, .7
+            bob = -abs(math.sin(t * 6)) * 8
+            eyes = "happy" if int(t * 2) % 2 else "closed"
             if now > self.until:
-                self._flipsaid = False
-                self.set_state("happy")
+                self.set_state("hover", 3)
         elif st == "sit":
             if not self.panel.isVisible():
                 self.set_state("hover", 2)
@@ -2184,7 +2274,7 @@ class Dragon(QWidget):
         lx = P["look"][0]
         sig = (P["eyes"], P["blink"] < .5, P["fold"], P["flap"] > .3, P["tail"] > 0,
                round(lx * 3), P["mouth"], int(round(P["bob"])), self.facing)
-        if sig != getattr(self, "_sig", None) or st in ("happy", "alert", "sleep", "sneeze", "flip"):
+        if sig != getattr(self, "_sig", None) or st in ("happy", "alert", "sleep", "sneeze", "music") or self.outfit[0]:
             self._sig = sig
             self.update()
 
@@ -2244,17 +2334,23 @@ class Dragon(QWidget):
         p = QPainter(self)
         p.translate(0, self.TOP)
         p.save()
-        if self.state == "flip":       # фигура: переворот вверх ногами и обратно
-            t = time.monotonic() - self.flip_from
-            k = min(1, t / .45) if t < 3.4 else max(0, 1 - (t - 3.4) / .45)
-            p.translate(CW / 2, CH / 2)
-            p.rotate(180 * (1 - (1 - k) ** 2))
-            p.translate(-CW / 2, -CH / 2)
         if self.facing > 0:            # хвост всегда сзади
             p.translate(CW, 0)
             p.scale(-1, 1)
         draw_dragon(p, self.params)
+        if self.outfit[0] and time.monotonic() < self.outfit[1] and not self.params.get("fold"):
+            draw_outfit(p, self.outfit[0], int(round(self.params.get("bob", 0))))
         p.restore()
+        if self.state == "music":
+            if not hasattr(self, "_note"):
+                self._note = [grid_image(g) for g in NOTE_SPRITES]
+            t = time.monotonic() - self.music_from
+            for i in range(3):
+                ph = (t / 1.6 + i / 3) % 1
+                p.setOpacity(max(0, 1 - ph))
+                x = HEAD_X + (-60 + i * 50) + math.sin(t * 3 + i) * 10
+                draw_pixels(p, self._note[i % 2], x, 4 * PIX - ph * 70, PIX - 1)
+            p.setOpacity(1)
         now = time.monotonic()
         if self.state == "sneeze":
             t = now - self.sneeze_from - .7
