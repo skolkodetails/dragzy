@@ -45,7 +45,7 @@ Other settings are at the top of `dragzy.pyw`:
 | `DESKTOP_ONLY` | `True`: lives beneath your windows; `False`: flies above everything |
 | `WEATHER` | `False`: no internet access at all |
 | `PHRASE_EVERY_MIN` | how often he talks |
-| `PIX` | dragon size: 2 is small (default), 4 is twice as big |
+| `SIZE` | dragon size in real screen pixels: 2 small (default), 3 medium, 4 large. Also in settings |
 | `SOUND` | chime at the end of each phase |
 
 ## Privacy and safety

@@ -290,11 +290,20 @@ def make_frame(eyes="open", wings="up", tail=0, look=0, mouth=None):
     return g
 
 
-PIX = 2                                  # размер «пикселя» на экране (4 = крупный дракончик)
+SIZE = 2      # сколько настоящих пикселей экрана на один пиксель дракончика: 2 / 3 / 4
 GW, GH = W - 2 * X0, H - Y0
-CW, CH = GW * PIX, GH * PIX
-CX = CW // 2
-HEAD_X = (18 - X0) * PIX                 # центр головы на холсте
+
+
+def set_scale(dpr=1.0):
+    """размер считается в физических пикселях, чтобы масштаб windows его не раздувал."""
+    global PIX, CW, CH, CX, HEAD_X
+    PIX = SIZE / (dpr or 1.0)
+    CW, CH = GW * PIX, GH * PIX
+    CX = CW / 2
+    HEAD_X = (18 - X0) * PIX                 # центр головы на холсте
+
+
+set_scale()
 _cache = {}
 
 HEART = [".KK.KK.", "KPPKPPK", "KPPPPPK", ".KPPPK.", "..KPK..", "...K..."]
@@ -698,12 +707,13 @@ def save_settings(d):
 
 
 def apply_settings(d):
-    global USER_NAME, PET_NAME, GENDER, MODE, CITY_NAME, CITY, PRANKS
+    global USER_NAME, PET_NAME, GENDER, MODE, CITY_NAME, CITY, PRANKS, SIZE
     USER_NAME = (d.get("name") or "друг").strip()
     PET_NAME = (d.get("pet") or "Слива").strip()
     GENDER = d.get("gender", "n")
     MODE = d.get("mode", "bold")
     PRANKS = MODE == "bold"
+    SIZE = int(d.get("size", 2))
     new_city = (d.get("city") or "").strip()
     if new_city != CITY_NAME:
         CITY = tuple(d["coords"]) if d.get("coords") else None
@@ -1606,6 +1616,10 @@ class Setup(QWidget):
         self.pet = QLineEdit(current.get("pet", "Слива"))
         lay.addWidget(self.pet)
 
+        q("какой у меня размер?")
+        self.size = self.segmented([("2", "маленький"), ("3", "средний"), ("4", "крупный")],
+                                   str(current.get("size", 2)), lay)
+
         q("какой у меня характер?")
         self.mode = {}
         row = QHBoxLayout()
@@ -1671,8 +1685,9 @@ class Setup(QWidget):
         d = load_settings() or {}
         if (d.get("city") or "").strip().lower() != self.city.text().strip().lower():
             d.pop("coords", None)
+        size = next((int(k) for k, b in self.size.items() if b.isChecked()), 2)
         d.update(name=self.name.text().strip() or "друг", gender=g, city=self.city.text().strip(),
-                 pet=self.pet.text().strip() or "Слива", mode=self.mode_key)
+                 pet=self.pet.text().strip() or "Слива", mode=self.mode_key, size=size)
         save_settings(d)
         apply_settings(d)
         self.t.stop()
@@ -1692,19 +1707,14 @@ class Setup(QWidget):
 
 
 class Dragon(QWidget):
-    TOP = 10 * PIX  # место сверху под сердечко и «z»
     SCALE = 1
 
     def __init__(self, greet=True):
         super().__init__(None, base_flags())
         self.setAttribute(Qt.WA_TranslucentBackground)
         self.setAttribute(Qt.WA_ShowWithoutActivating)
-        self.W = int(CW * self.SCALE)
-        self.H = int(CH + self.TOP)
-        self.setFixedSize(self.W, self.H)
-
         self.work = QGuiApplication.primaryScreen().availableGeometry()
-        self.floor = self.work.bottom() - int(self.TOP + (32 - Y0) * PIX)
+        self.apply_size()
         self.x = random.uniform(self.work.left(), self.work.right() - self.W)
         self.y = self.floor - 160
         self.vx = 0.0
@@ -1853,7 +1863,7 @@ class Dragon(QWidget):
         self.set_state("hover", 3)
 
     def open_setup(self):
-        cur = dict(name=USER_NAME, gender=GENDER, city=CITY_NAME, pet=PET_NAME, mode=MODE)
+        cur = dict(name=USER_NAME, gender=GENDER, city=CITY_NAME, pet=PET_NAME, mode=MODE, size=SIZE)
         self.setup = Setup(cur, self.setup_done, first=False)
         g = self.work
         self.setup.adjustSize()
@@ -1863,6 +1873,7 @@ class Dragon(QWidget):
 
     def setup_done(self):
         self.panel.title.setText(f"{PET_NAME} · помодоро")
+        self.apply_size()
         self.weather_day = None
         self.check_weather()
         self.set_state("happy")
@@ -2325,6 +2336,16 @@ class Dragon(QWidget):
         if self.timer.interval() != want:
             self.timer.setInterval(want)
 
+    def apply_size(self):
+        set_scale(QGuiApplication.primaryScreen().devicePixelRatio())
+        self.TOP = 10 * PIX                  # место сверху под сердечко и «z»
+        self.W = int(math.ceil(CW))
+        self.H = int(math.ceil(CH + self.TOP))
+        self.setFixedSize(self.W, self.H)
+        self.floor = self.work.bottom() - int(self.TOP + (32 - Y0) * PIX)
+        self._sig = None
+        self.update()
+
     def head_x(self):
         return self.x + HEAD_X
 
@@ -2394,6 +2415,27 @@ def main():
             pass
     app = QApplication(sys.argv)
     app.setQuitOnLastWindowClosed(False)
+    # один Слива за раз: новый запуск вежливо закрывает старый
+    from PySide6.QtNetwork import QLocalServer, QLocalSocket
+    name = "dragzy-desktop-pet"
+    old = QLocalSocket()
+    old.connectToServer(name)
+    if old.waitForConnected(300):
+        old.write(b"quit")
+        old.flush()
+        old.waitForBytesWritten(300)
+        old.disconnectFromServer()
+        time.sleep(.6)
+    QLocalServer.removeServer(name)
+    server = QLocalServer()
+    server.listen(name)
+
+    def on_conn():
+        c = server.nextPendingConnection()
+        c.waitForReadyRead(300)
+        if bytes(c.readAll()).startswith(b"quit"):
+            app.quit()
+    server.newConnection.connect(on_conn)
     holder = {}
     saved = load_settings()
     if saved:
@@ -2403,7 +2445,7 @@ def main():
         def start():
             d = holder["d"] = Dragon(greet=False)
             QTimer.singleShot(1200, lambda: (d.set_state("happy"), d.say(R("hello"), 7)))
-        cur = dict(name=USER_NAME if USER_NAME != "друг" else "", gender="f", city="", pet=PET_NAME, mode="bold")
+        cur = dict(name=USER_NAME if USER_NAME != "друг" else "", gender="f", city="", pet=PET_NAME, mode="bold", size=2)
         w = holder["setup"] = Setup(cur, start, first=True)
         w.adjustSize()
         g = QGuiApplication.primaryScreen().availableGeometry()
