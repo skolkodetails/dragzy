@@ -290,7 +290,7 @@ def make_frame(eyes="open", wings="up", tail=0, look=0, mouth=None):
     return g
 
 
-PIX = 4                                  # размер «пикселя» на экране
+PIX = 2                                  # размер «пикселя» на экране (4 = крупный дракончик)
 GW, GH = W - 2 * X0, H - Y0
 CW, CH = GW * PIX, GH * PIX
 CX = CW // 2
@@ -1692,7 +1692,7 @@ class Setup(QWidget):
 
 
 class Dragon(QWidget):
-    TOP = 40       # место сверху под сердечко и «z»
+    TOP = 10 * PIX  # место сверху под сердечко и «z»
     SCALE = 1
 
     def __init__(self, greet=True):
@@ -1890,12 +1890,11 @@ class Dragon(QWidget):
         now = time.monotonic()
         self.state = st
         if st == "hover":
-            self.until = now + (dur or random.uniform(4, 12))
+            self.until = now + (dur or random.uniform(2, 6))
         elif st == "fly":
             w = self.work
-            dx, dy = random.uniform(-280, 280), random.uniform(-180, 180)
-            self.target = (min(max(self.x + dx, w.left()), w.right() - self.W),
-                           min(max(self.y + dy, w.top() + 30), self.floor - 40))
+            self.target = (random.uniform(w.left(), w.right() - self.W),
+                           random.uniform(w.top() + 30, self.floor - 40))
             self.until = now + 15
         elif st == "chase":
             self.until = now + 6
@@ -2016,13 +2015,12 @@ class Dragon(QWidget):
         focus = P.running and P.phase == "work"      # во время работы ведёт себя тише
         rest = P.running and P.phase in ("short", "long")
         sleepy = .35 if (h >= 23 or h < 7) else .15
-        # летает по столу вдвое меньше: больше зависает, полёты короче
         if focus:
-            weights = (("landing", .3), ("fly", .12), ("hover", .58))
+            weights = (("landing", .3), ("fly", .25), ("hover", .45))
         elif rest:
-            weights = (("chase", .18), ("fly", .22), ("hover", .6))
+            weights = (("chase", .35), ("fly", .45), ("hover", .2))
         else:
-            weights = (("landing", sleepy), ("fly", .25), ("chase", .06), ("hover", .69 - sleepy))
+            weights = (("landing", sleepy), ("fly", .5), ("chase", .12), ("hover", .38 - sleepy))
         r = random.random()
         for st, w in weights:
             r -= w
@@ -2102,7 +2100,7 @@ class Dragon(QWidget):
         now = time.monotonic()
         st = self.state
         fs, fb, fa = 5.0, .35, .55          # частота, середина и размах взмаха
-        bob = math.sin(now * 2.2) * 4
+        bob = math.sin(now * 2.2) * PIX
         eyes = "open"
         fold = False
         self.vx = self.vy = 0 if st not in ("fly", "chase", "landing", "alert") else self.vx
@@ -2113,7 +2111,7 @@ class Dragon(QWidget):
         elif st == "fly":
             fs, fb, fa = 8, .2, .8
             if self.move_towards(*self.target, FLY_SPEED) or now > self.until:
-                self.set_state("hover" if random.random() < .85 else "fly")
+                self.set_state("hover" if random.random() < .7 else "fly")
         elif st == "chase":
             fs, fb, fa = 11, .15, .85
             c = QCursor.pos()
@@ -2133,13 +2131,13 @@ class Dragon(QWidget):
         elif st == "happy":
             t = now - self.happy_from
             fs, fb, fa = 10, .2, .8
-            bob = -abs(math.sin(t * 7)) * 14 * max(0, 1 - t / 1.4)
+            bob = -abs(math.sin(t * 7)) * 3.5 * PIX * max(0, 1 - t / 1.4)
             eyes = "happy"
             if now > self.until:
                 self.set_state("hover", 3)
         elif st == "dizzy":
             eyes = "wow"
-            bob = math.sin(now * 30) * 3
+            bob = math.sin(now * 30) * .75 * PIX
             if now > self.until:
                 self.set_state("hover", 2)
         elif st == "drag":
@@ -2151,7 +2149,7 @@ class Dragon(QWidget):
         elif st == "sneeze":
             t = now - self.sneeze_from
             eyes = "wow" if t < .7 else ("closed" if t < 1.0 else "brow")
-            bob = -6 if .7 < t < 1.0 else 0
+            bob = -1.5 * PIX if .7 < t < 1.0 else 0
             if t > 1.0 and not getattr(self, "_sneezed", False):
                 self._sneezed = True
                 self.say(random.choice(SNEEZE), 3)
@@ -2195,7 +2193,7 @@ class Dragon(QWidget):
         elif st == "music":
             t = now - self.music_from
             fs, fb, fa = 9, .3, .7
-            bob = -abs(math.sin(t * 6)) * 8
+            bob = -abs(math.sin(t * 6)) * 2 * PIX
             eyes = "happy" if int(t * 2) % 2 else "closed"
             if now > self.until:
                 self.set_state("hover", 3)
@@ -2205,7 +2203,7 @@ class Dragon(QWidget):
             else:
                 g = self.panel.geometry()
                 tx = g.center().x() + 40 - self.W / 2
-                ty = g.top() - (self.TOP + (31 - Y0) * PIX) + 14
+                ty = g.top() - (self.TOP + (31 - Y0) * PIX) + 3 * PIX
                 if self.move_towards(tx, ty, FLY_SPEED * 1.5):
                     fold, bob = True, 0
                     if not getattr(self, "_sat", False):
@@ -2348,8 +2346,8 @@ class Dragon(QWidget):
             for i in range(3):
                 ph = (t / 1.6 + i / 3) % 1
                 p.setOpacity(max(0, 1 - ph))
-                x = HEAD_X + (-60 + i * 50) + math.sin(t * 3 + i) * 10
-                draw_pixels(p, self._note[i % 2], x, 4 * PIX - ph * 70, PIX - 1)
+                x = HEAD_X + (-15 + i * 12) * PIX + math.sin(t * 3 + i) * 2.5 * PIX
+                draw_pixels(p, self._note[i % 2], x, 4 * PIX - ph * 18 * PIX, max(1, PIX * .75))
             p.setOpacity(1)
         now = time.monotonic()
         if self.state == "sneeze":
@@ -2364,9 +2362,9 @@ class Dragon(QWidget):
                         p.setBrush(QColor(col))
                         for j in range(5):
                             a = j * 1.26 + i
-                            rr = (6 + k * 26) * (1 + .15 * j % 2)
+                            rr = (1.5 + k * 6.5) * PIX * (1 + .15 * j % 2)
                             sz = PIX * (2 - k)
-                            p.drawRect(QRectF(mx + math.cos(a) * rr - sz / 2, my + 10 + k * 18 + math.sin(a) * rr * .6,
+                            p.drawRect(QRectF(mx + math.cos(a) * rr - sz / 2, my + 2.5 * PIX + k * 4.5 * PIX + math.sin(a) * rr * .6,
                                               sz, sz))
                 p.setOpacity(1)
         if self.state in ("happy", "alert"):
@@ -2374,7 +2372,7 @@ class Dragon(QWidget):
             p.setOpacity(max(0, 1 - t / 1.4))
             if not hasattr(self, "_heart"):
                 self._heart = grid_image(HEART)
-            draw_pixels(p, self._heart, HEAD_X - 3.5 * PIX, -8 * PIX - t * 24, PIX)
+            draw_pixels(p, self._heart, HEAD_X - 3.5 * PIX, -8 * PIX - t * 6 * PIX, PIX)
             p.setOpacity(1)
         if self.state == "sleep":
             if not hasattr(self, "_zed"):
@@ -2382,7 +2380,8 @@ class Dragon(QWidget):
             for i in range(2):
                 ph = (now / 2.6 + i / 2) % 1
                 p.setOpacity(max(0, 1 - ph))
-                draw_pixels(p, self._zed, HEAD_X + 5 * PIX + ph * 20, 2 * PIX - ph * 50, PIX - 1 + int(ph * 2))
+                draw_pixels(p, self._zed, HEAD_X + 5 * PIX + ph * 5 * PIX, 2 * PIX - ph * 12 * PIX,
+                            max(1, PIX * (3 + 2 * ph) / 4))
             p.setOpacity(1)
 
 
