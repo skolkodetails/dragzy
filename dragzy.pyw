@@ -387,6 +387,13 @@ SNEEZE = ["пардон. аллергия на дедлайны.", "это бы�
 COOL = ["я знаю. можешь не говорить.", "очки? для солнца. какого? своего.", "не обращай внимания, я просто крутой."]
 NOTE_DROP = ["оставил кое-что на столе. не благодари.", "у тебя на столе послание. ищи.", ""]
 NOTE_GONE = ["эй, это было искусство.", "ну и ладно. напишу ещё.", ""]
+MOTIONS = [
+    "эта палата запретила бы дедлайны по понедельникам.",
+    "эта палата сделала бы дневной сон обязательным.",
+    "эта палата считает, что драконы лучшие питомцы.",
+    "эта палата отменила бы будильники.",
+]
+FLIP = ["фигура «дракон вверх ногами». судьи, оценки?", "вертикаль. держу хвост ровно.", "это не падение. это хореография."]
 NOTES = [
     "тут был Слива",
     "я съел твою прокрастинацию. было невкусно.",
@@ -445,6 +452,9 @@ try:
     PHRASES_YOU = list(getattr(_me, "PHRASES_YOU", PHRASES_YOU))
     PHRASES_ANY = PHRASES_ANY + list(getattr(_me, "PHRASES_EXTRA", []))
     PHRASES_BADBOY = PHRASES_BADBOY + list(getattr(_me, "PHRASES_BADBOY_EXTRA", []))
+    NOTES = NOTES + list(getattr(_me, "NOTES_EXTRA", []))
+    MOTIONS = MOTIONS + list(getattr(_me, "MOTIONS_EXTRA", []))
+    FLIP = FLIP + list(getattr(_me, "FLIP_EXTRA", []))
     for _part, _lines in getattr(_me, "PHRASES_TIME_EXTRA", {}).items():
         PHRASES_TIME.setdefault(_part, []).extend(_lines)
 except ImportError:
@@ -1656,6 +1666,7 @@ class Dragon(QWidget):
         self.drag_said = False
         self.peek_phase = 0
         self.sneeze_from = 0
+        self.flip_from = 0
         self.next_prank = time.monotonic() + self.prank_gap()
 
         self.menu = QMenu()
@@ -1845,6 +1856,9 @@ class Dragon(QWidget):
             self.until = now + 12
         elif st == "sit":
             self.until = now + 45
+        elif st == "flip":
+            self.flip_from = now
+            self.until = now + 4
 
     # ---------------- хулиганства
     @staticmethod
@@ -1860,7 +1874,7 @@ class Dragon(QWidget):
         return P.running and P.phase == "work"
 
     def prank(self):
-        options = ["note", "peek", "sneeze", "cool", "wink"]
+        options = ["note", "peek", "sneeze", "cool", "wink", "motion", "flip"]
         if self.panel.isVisible():
             options += ["sit", "sit"]
         if len(self.notes) >= 3:
@@ -1875,6 +1889,12 @@ class Dragon(QWidget):
             self.set_state("hover", 3)
         elif kind == "sneeze":
             self.set_state("sneeze")
+        elif kind == "motion":
+            self.set_mood("brow", 4)
+            self.set_state("hover", 9)
+            self.say(f"резолюция дня: «{random.choice(MOTIONS)}» у тебя 30 секунд на аргумент. я засекаю.", 9)
+        elif kind == "flip":
+            self.set_state("flip")
         else:
             self.set_state(kind)
 
@@ -2077,6 +2097,18 @@ class Dragon(QWidget):
             if self.move_towards(*self.target, FLY_SPEED * 1.3) or now > self.until:
                 self.drop_note()
                 self.set_state("fly")
+        elif st == "flip":
+            t = now - self.flip_from
+            eyes = "happy" if t > .5 else "wow"
+            fs, fb, fa = 6, .3, .6
+            if t > .6 and not getattr(self, "_flipsaid", False):
+                self._flipsaid = True
+                line = gtext(random.choice(FLIP))
+                if line:
+                    self.say(line.format(name=USER_NAME), 3.5)
+            if now > self.until:
+                self._flipsaid = False
+                self.set_state("happy")
         elif st == "sit":
             if not self.panel.isVisible():
                 self.set_state("hover", 2)
@@ -2152,7 +2184,7 @@ class Dragon(QWidget):
         lx = P["look"][0]
         sig = (P["eyes"], P["blink"] < .5, P["fold"], P["flap"] > .3, P["tail"] > 0,
                round(lx * 3), P["mouth"], int(round(P["bob"])), self.facing)
-        if sig != getattr(self, "_sig", None) or st in ("happy", "alert", "sleep", "sneeze"):
+        if sig != getattr(self, "_sig", None) or st in ("happy", "alert", "sleep", "sneeze", "flip"):
             self._sig = sig
             self.update()
 
@@ -2212,6 +2244,12 @@ class Dragon(QWidget):
         p = QPainter(self)
         p.translate(0, self.TOP)
         p.save()
+        if self.state == "flip":       # фигура: переворот вверх ногами и обратно
+            t = time.monotonic() - self.flip_from
+            k = min(1, t / .45) if t < 3.4 else max(0, 1 - (t - 3.4) / .45)
+            p.translate(CW / 2, CH / 2)
+            p.rotate(180 * (1 - (1 - k) ** 2))
+            p.translate(-CW / 2, -CH / 2)
         if self.facing > 0:            # хвост всегда сзади
             p.translate(CW, 0)
             p.scale(-1, 1)
