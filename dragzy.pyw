@@ -19,7 +19,7 @@ Dragzy: фиолетовый пиксельный дракончик для ра
 В интернет ходит раз в день за прогнозом погоды через Open-Meteo
 (без аккаунта; название города отправляется один раз, дальше только координаты).
 Пишет только свои файлы в %APPDATA%\\Dragzy: settings.json и stats.json.
-Не ставится в автозагрузку, не читает клавиатуру и окна.
+В автозагрузку попадает, только если ты сам это выберешь. Не читает клавиатуру и окна.
 Имя, город и характер спрашиваются при первом запуске. Свои фразы можно добавить в personal.py.
 """
 import datetime as dt
@@ -704,6 +704,56 @@ def save_settings(d):
         os.replace(path + ".tmp", path)
     except Exception:
         pass
+
+
+def _launch_cmd():
+    """чем и что запускать: pythonw (без окна консоли) и этот файл."""
+    exe = sys.executable
+    if IS_WIN and exe.lower().endswith("python.exe"):
+        w = exe[:-10] + "pythonw.exe"
+        if os.path.exists(w):
+            exe = w
+    return exe, os.path.abspath(sys.argv[0] if sys.argv and sys.argv[0] else __file__)
+
+
+def autostart_path():
+    if IS_WIN:
+        return os.path.join(os.environ.get("APPDATA", ""), r"Microsoft\Windows\Start Menu\Programs\Startup",
+                            "Dragzy.vbs")
+    if sys.platform == "darwin":
+        return os.path.expanduser("~/Library/LaunchAgents/com.dragzy.pet.plist")
+    return os.path.expanduser("~/.config/autostart/dragzy.desktop")
+
+
+def set_autostart(on):
+    """кладёт или убирает ярлык автозапуска в папке пользователя. без прав администратора."""
+    path = autostart_path()
+    try:
+        if not on:
+            if os.path.exists(path):
+                os.remove(path)
+            return True
+        exe, script = _launch_cmd()
+        os.makedirs(os.path.dirname(path), exist_ok=True)
+        if IS_WIN:
+            body = ('Set sh = CreateObject("WScript.Shell")\r\n'
+                    'sh.Run """%s"" ""%s""", 0, False\r\n' % (exe, script))
+            with open(path, "w", encoding="utf-16") as f:
+                f.write(body)
+        elif sys.platform == "darwin":
+            body = ('<?xml version="1.0" encoding="UTF-8"?>\n<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" '
+                    '"http://www.apple.com/DTDs/PropertyList-1.0.dtd">\n<plist version="1.0"><dict>'
+                    '<key>Label</key><string>com.dragzy.pet</string><key>ProgramArguments</key><array>'
+                    '<string>%s</string><string>%s</string></array><key>RunAtLoad</key><true/></dict></plist>\n'
+                    % (exe, script))
+            with open(path, "w", encoding="utf-8") as f:
+                f.write(body)
+        else:
+            with open(path, "w", encoding="utf-8") as f:
+                f.write("[Desktop Entry]\nType=Application\nName=Dragzy\nExec=\"%s\" \"%s\"\n" % (exe, script))
+        return True
+    except Exception:
+        return False
 
 
 def apply_settings(d):
@@ -1620,6 +1670,10 @@ class Setup(QWidget):
         self.size = self.segmented([("2", "маленький"), ("3", "средний"), ("4", "крупный")],
                                    str(current.get("size", 2)), lay)
 
+        q("запускать меня вместе с компьютером?")
+        self.auto = self.segmented([("1", "да, при включении"), ("0", "нет, вручную")],
+                                   "1" if current.get("autostart") else "0", lay)
+
         q("какой у меня характер?")
         self.mode = {}
         row = QHBoxLayout()
@@ -1686,8 +1740,10 @@ class Setup(QWidget):
         if (d.get("city") or "").strip().lower() != self.city.text().strip().lower():
             d.pop("coords", None)
         size = next((int(k) for k, b in self.size.items() if b.isChecked()), 2)
+        auto = self.auto["1"].isChecked()
+        set_autostart(auto)
         d.update(name=self.name.text().strip() or "друг", gender=g, city=self.city.text().strip(),
-                 pet=self.pet.text().strip() or "Слива", mode=self.mode_key, size=size)
+                 pet=self.pet.text().strip() or "Слива", mode=self.mode_key, size=size, autostart=auto)
         save_settings(d)
         apply_settings(d)
         self.t.stop()
@@ -1863,7 +1919,8 @@ class Dragon(QWidget):
         self.set_state("hover", 3)
 
     def open_setup(self):
-        cur = dict(name=USER_NAME, gender=GENDER, city=CITY_NAME, pet=PET_NAME, mode=MODE, size=SIZE)
+        cur = dict(name=USER_NAME, gender=GENDER, city=CITY_NAME, pet=PET_NAME, mode=MODE, size=SIZE,
+                   autostart=os.path.exists(autostart_path()))
         self.setup = Setup(cur, self.setup_done, first=False)
         g = self.work
         self.setup.adjustSize()

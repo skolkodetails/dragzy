@@ -52,7 +52,7 @@ Other settings are at the top of `dragzy.pyw`:
 
 - Uses only the Python standard library and Qt (PySide6).
 - Goes online only for the weather, once a day, via Open-Meteo. No account needed. Your city's name is sent once to find its coordinates, after that only the coordinates.
-- Writes only its own files in `%APPDATA%\Dragzy`: `settings.json` and `stats.json`. It doesn't add itself to startup and doesn't read your keyboard or the contents of other windows. All it knows about your system is the screen size and where the cursor is.
+- Writes only its own files in `%APPDATA%\Dragzy`: `settings.json` and `stats.json`. It adds itself to startup only if you choose so during setup (a small file in your user Startup folder, no admin rights), and it doesn't read your keyboard or the contents of other windows. All it knows about your system is the screen size and where the cursor is.
 - CPU usage is about 3% of one core in normal mode and about 1% while he sleeps.
 
 If the dragon doesn't show up after launch, set `DESKTOP_ONLY = False`: some Windows builds hide windows like this beneath the desktop.
