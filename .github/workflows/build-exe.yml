@@ -6,6 +6,9 @@ on:
     paths: ["dragzy.pyw", "dragzy.ico", ".github/workflows/build-exe.yml"]
   workflow_dispatch:
 
+permissions:
+  contents: write
+
 jobs:
   windows:
     runs-on: windows-latest
@@ -24,3 +27,17 @@ jobs:
         with:
           name: Dragzy-windows
           path: dist/Dragzy.exe
+      - name: publish release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: latest
+          name: Dragzy для Windows
+          prerelease: false
+          make_latest: true
+          body: |
+            Скачай **Dragzy.exe** и запусти двойным кликом. Ничего устанавливать не нужно.
+
+            Windows может показать окно «Система Windows защитила ваш компьютер»: так бывает со всеми программами без платной цифровой подписи. Нажми «Подробнее» → «Выполнить в любом случае».
+
+            Свои фразы можно добавить в `personal.py` рядом с exe (пример в репозитории).
+          files: dist/Dragzy.exe
