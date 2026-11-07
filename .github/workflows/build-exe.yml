@@ -1,0 +1,26 @@
+name: build exe
+
+on:
+  push:
+    branches: [main]
+    paths: ["dragzy.pyw", "dragzy.ico", ".github/workflows/build-exe.yml"]
+  workflow_dispatch:
+
+jobs:
+  windows:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: install
+        run: pip install PySide6-Essentials pyinstaller
+      - name: build
+        run: >
+          pyinstaller --noconfirm --onefile --windowed --name Dragzy --icon dragzy.ico
+          --exclude-module personal dragzy.pyw
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Dragzy-windows
+          path: dist/Dragzy.exe

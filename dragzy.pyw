@@ -35,6 +35,10 @@ import urllib.parse
 import urllib.request
 
 IS_WIN = sys.platform.startswith("win")
+FROZEN = getattr(sys, "frozen", False)          # запущен как собранный .exe
+if FROZEN:
+    # personal.py ищем рядом с .exe
+    sys.path.insert(0, os.path.dirname(os.path.abspath(sys.executable)))
 
 try:
     from PySide6.QtCore import (Qt, QEasingCurve, QPoint, QPointF, QPropertyAnimation, QRect,
@@ -708,6 +712,8 @@ def save_settings(d):
 
 def _launch_cmd():
     """чем и что запускать: pythonw (без окна консоли) и этот файл."""
+    if FROZEN:
+        return sys.executable, None
     exe = sys.executable
     if IS_WIN and exe.lower().endswith("python.exe"):
         w = exe[:-10] + "pythonw.exe"
@@ -736,21 +742,22 @@ def set_autostart(on):
         exe, script = _launch_cmd()
         os.makedirs(os.path.dirname(path), exist_ok=True)
         if IS_WIN:
-            body = ('Set sh = CreateObject("WScript.Shell")\r\n'
-                    'sh.Run """%s"" ""%s""", 0, False\r\n' % (exe, script))
+            target = '"""%s"""' % exe if script is None else '"""%s"" ""%s"""' % (exe, script)
+            body = 'Set sh = CreateObject("WScript.Shell")\r\nsh.Run %s, 0, False\r\n' % target
             with open(path, "w", encoding="utf-16") as f:
                 f.write(body)
         elif sys.platform == "darwin":
             body = ('<?xml version="1.0" encoding="UTF-8"?>\n<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" '
                     '"http://www.apple.com/DTDs/PropertyList-1.0.dtd">\n<plist version="1.0"><dict>'
                     '<key>Label</key><string>com.dragzy.pet</string><key>ProgramArguments</key><array>'
-                    '<string>%s</string><string>%s</string></array><key>RunAtLoad</key><true/></dict></plist>\n'
-                    % (exe, script))
+                    '%s</array><key>RunAtLoad</key><true/></dict></plist>\n'
+                    % ("".join("<string>%s</string>" % a for a in (exe, script) if a)))
             with open(path, "w", encoding="utf-8") as f:
                 f.write(body)
         else:
             with open(path, "w", encoding="utf-8") as f:
-                f.write("[Desktop Entry]\nType=Application\nName=Dragzy\nExec=\"%s\" \"%s\"\n" % (exe, script))
+                f.write("[Desktop Entry]\nType=Application\nName=Dragzy\nExec=%s\n"
+                        % " ".join('"%s"' % a for a in (exe, script) if a))
         return True
     except Exception:
         return False
