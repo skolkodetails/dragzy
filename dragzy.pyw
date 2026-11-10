@@ -986,7 +986,7 @@ def apply_settings(d):
     PRANKS = MODE == "bold"
     SIZE = int(d.get("size", 2))
     apply_lang(d.get("lang", "ru"))
-    if d.get("sound") in dict(SOUNDS):
+    if d.get("sound") in dict(SOUNDS) or str(d.get("sound", "")).startswith("my:"):
         SOUND_NAME = d["sound"]
     new_city = (d.get("city") or "").strip()
     if new_city != CITY_NAME:
@@ -1062,7 +1062,29 @@ def _synth(name, kind):
     return out.getvalue()
 
 
+def custom_sounds():
+    """свои звуки: любые .wav в папке %APPDATA%\\Dragzy\\sounds. имя файла = название в списке."""
+    d = os.path.join(app_dir(), "sounds")
+    try:
+        os.makedirs(d, exist_ok=True)
+        return sorted(f[:-4] for f in os.listdir(d) if f.lower().endswith(".wav"))
+    except OSError:
+        return []
+
+
+def sound_list():
+    """встроенные звуки, потом свои, в конце «без звука»."""
+    return SOUNDS[:-1] + [("my:" + n, n) for n in custom_sounds()] + SOUNDS[-1:]
+
+
+def sound_title(key):
+    return key[3:] if key.startswith("my:") else T(dict(SOUNDS).get(key, key))
+
+
 def sound_bytes(name, kind):
+    if name.startswith("my:"):                             # свой звук: один и тот же на отдых и на работу
+        with open(os.path.join(app_dir(), "sounds", name[3:] + ".wav"), "rb") as f:
+            return f.read()
     key = (name, kind)
     if key not in _SND_CACHE:
         _SND_CACHE[key] = _synth(name, kind)
@@ -1834,8 +1856,9 @@ class Panel(QWidget):
 
     def change_sound(self, d):
         global SOUND_NAME
-        keys = [k for k, _ in SOUNDS]
-        SOUND_NAME = keys[(keys.index(SOUND_NAME) + d) % len(keys)]
+        keys = [k for k, _ in sound_list()]
+        i = keys.index(SOUND_NAME) if SOUND_NAME in keys else 0
+        SOUND_NAME = keys[(i + d) % len(keys)]
         cfg = load_settings() or {}
         cfg["sound"] = SOUND_NAME
         save_settings(cfg)
@@ -1876,7 +1899,7 @@ class Panel(QWidget):
         self.main.setText(T("пауза") if P.running else (T("старт") if P.phase == "idle" else T("дальше")))
         self.main.setStyleSheet(main_btn_css(UI_GREEN, "#7be35a") if rest
                                 else main_btn_css(UI_ORANGE, "#ff9433"))
-        self.sound_lbl.setText(T(dict(SOUNDS)[SOUND_NAME]))
+        self.sound_lbl.setText(sound_title(SOUND_NAME))
         for k, lab in self.vals.items():
             lab.setText(str(getattr(P, k)))
         for k, b in self.start_btns.items():
