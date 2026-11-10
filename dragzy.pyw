@@ -8,7 +8,7 @@ Dragzy: фиолетовый пиксельный дракончик для ра
 Что умеет:
 - живёт на рабочем столе под окнами: летает, машет крыльями, моргает,
   следит глазами за курсором, иногда засыпает на панели задач;
-- раз в 15-25 минут говорит фразочку про время суток, погоду и дела
+- раз в 7-13 минут говорит фразочку про время суток, погоду и дела
   (личные фразы берутся из personal.py, если он лежит рядом);
 - по клику открывает помодоро-таймер со статистикой (сохраняется между запусками);
 - в конце работы или отдыха подаёт короткий сигнал и вылетает поверх
@@ -71,7 +71,7 @@ CITY_NAME = ""
 DESKTOP_ONLY = True          # True, живёт под окнами; False, поверх всех окон
 WEATHER = True               # False, совсем без интернета
 CITY = None                  # координаты, находятся по названию города
-PHRASE_EVERY_MIN = (15, 25)  # фразочка раз в 15-25 минут
+PHRASE_EVERY_MIN = (7, 13)   # фразочка раз в 7-13 минут
 SOUND = True
 PRANKS = True                # хулиганства (включены в нахальном характере)
 FLY_SPEED = 2.6
@@ -85,6 +85,55 @@ UI_ORANGE = "#ff7b00"
 UI_GREEN = "#56d12e"
 BUBBLE_BG = "#fffaf3"
 BUBBLE_LINE = "#2a1840"
+
+# ================================================================= язык
+LANG = "ru"          # ru / en, выбирается при знакомстве
+
+EN = {
+    "без рода": "they", "всего": "total", "выход": "quit", "готово": "done", "да, при включении": "yes, at startup",
+    "давай познакомимся": "let's get acquainted", "дальше": "continue",
+    "дерзит, подмигивает,\nоставляет записки": "sassy, winks,\nleaves notes",
+    "длинный отдых после каждой {k}-й помидорки": "long break after every {k} pomodoros",
+    "длинный отдых": "long break", "за 7 дней": "last 7 days",
+    "запускать меня вместе с компьютером?": "start me with your computer?",
+    "имя или как тебя называть": "your name or nickname", "как к тебе обращаться?": "your pronouns",
+    "как назовёшь меня?": "what will you call me?", "как тебя зовут?": "what's your name?",
+    "какой у меня размер?": "how big am i?", "какой у меня характер?": "what's my personality?",
+    "короткий отдых": "short break", "крупный": "large", "маленький": "small", "мин": "min",
+    "можно начинать": "ready when you are", "например, москва. пусто, если без погоды": "e.g. london. leave empty for no weather",
+    "настройки": "settings", "нахальный": "cheeky", "начинать с": "start with", "нет, вручную": "no, manually",
+    "он": "he", "она": "she", "отдых": "break", "отдыха": "a break", "пауза": "pause", "подряд": "day streak",
+    "пока пусто. первая помидорка впереди.": "nothing yet. your first pomodoro awaits.",
+    "полминуты. потом всё можно поменять в меню, правый клик по дракончику.":
+        "takes half a minute. change anything later: right-click the dragon.",
+    "помидорок до длинного": "pomodoros until long break", "помодоро": "pomodoro", "пропустить": "skip",
+    "работа": "work", "работы": "work", "рекорд дня": "daily record", "сброс": "reset",
+    "сегодня помидорок: {n}": "pomodoros today: {n}", "сегодня": "today", "скажи что-нибудь": "say something",
+    "сохранить": "save", "спокойный": "calm", "средний": "medium", "старт": "start", "статистика": "stats",
+    "таймер": "timer", "твой город, для погоды": "your city, for the weather",
+    "только забота\nи помодоро": "just care\nand pomodoro", "уложить спать": "go to sleep", "фокус": "focus",
+    "фокуса сегодня": "focus today", "ч": "h", "шт": "", "я тут посижу. не обращай внимания.": "i'll just sit here. don't mind me.",
+    "язык": "language", "звук": "sound", "без звука": "no sound",
+    "колокольчик": "bell", "маримба": "marimba", "арфа": "harp", "капли": "drops",
+    "мягкий гонг": "soft gong", "8-бит": "8-bit",
+}
+
+
+def T(s):
+    return EN.get(s, s) if LANG == "en" else s
+
+
+def pl(n, kind):
+    if LANG == "en":
+        return {"pomo": "pomodoro", "day": "day"}[kind] + ("" if n == 1 else "s")
+    forms = {"pomo": ("помидорка", "помидорки", "помидорок"), "day": ("день", "дня", "дней")}[kind]
+    n = abs(n)
+    if n % 10 == 1 and n % 100 != 11:
+        return forms[0]
+    if 2 <= n % 10 <= 4 and not 12 <= n % 100 <= 14:
+        return forms[1]
+    return forms[2]
+
 
 # ================================================================= спрайты дракончика
 W, H = 36, 33
@@ -586,6 +635,146 @@ def R(key, **kw):
     return t.format(name=USER_NAME, pet=PET_NAME, **kw)
 
 
+# ---------------- английские версии реплик
+EN_LISTS = dict(
+    PHRASES_ANY=[
+        "drink some water. it genuinely helps you think.",
+        "not sure where to start? start with the smallest piece.",
+        "big task? slice it. which slice goes first?",
+        "done beats perfect. polish it later.",
+        "an error is just data. read what it says and move on.",
+        "been sitting a while? two minutes on your feet resets your head.",
+        "open a window. brains like oxygen.",
+        "phone face down, and the world gets quieter.",
+        "we could start a pomodoro. click me.",
+        "close a couple of tabs. more room in your head.",
+        "if a task scares you, open it for two minutes. it usually rolls from there.",
+        "you got more done today than it feels like.",
+    ],
+    PHRASES_YOU=[
+        "claim, example, conclusion. works in arguments and in essays.",
+        "python isn't yelling at you. it's a traceback. read it bottom up.",
+        "improv rule: say «yes, and». try it with a break.",
+        "small talk practice: how are you today? 'tired' is an honest answer.",
+    ],
+    PHRASES_TIME={
+        "morning": ["good morning, {name}. breakfast first, then the world.",
+                    "mornings are great for the hardest task of the day.",
+                    "it's {time}. pick three main things for today. not thirty."],
+        "day": ["midday. had lunch yet?", "the post-lunch slump is biology, not you. a pomodoro helps.",
+                "it's {time}. good moment to close one small task."],
+        "evening": ["evening. what went well today? one thing counts.", "it's {time}. time to start wrapping up."],
+        "night": ["it's {time}. the work can wait till morning. sleep can't.",
+                  "{time}, it's late. tomorrow will be easier if you sleep now.",
+                  "night ideas always feel genius. check them in the morning.",
+                  "tired eyes mean bedtime. i'm going to nap on the taskbar too."],
+    },
+    PHRASES_WEEKDAY={0: "monday. a soft start is fine.", 4: "friday. some tasks can honestly wait till monday.",
+                     5: "saturday. rest is part of the work.", 6: "sunday. ten minutes to plan the week, then rest."},
+    PHRASES_BADBOY=[
+        "don't thank me. actually, you can.",
+        "rules were invented by people who can't fly. deadlines too, sadly.",
+        "i'm not here because i worry. just flying by. drink some water.",
+        "i don't have a plan. i have charisma and a little fire.",
+        "i don't need motivation, i need an audience. you work, i'll watch.",
+        "take a break. not for me. for the drama.",
+        "wisdom of the day: if you can't beat a task, break it into pieces. into pieces, not against a wall.",
+        "i didn't move your icons. but if i did, it looks better.",
+        "bad dragons do pomodoros too. we just don't brag.",
+        "if anyone asks, i made you take a break. i don't mind, i have a reputation.",
+        "the secret to being cool: sleeping at night. boring, but it works.",
+        "i don't do lectures, so short version: phone away.",
+        "i'm mysterious. also, i know you have too many tabs open.",
+        "legends don't rush. they also don't procrastinate for three hours.",
+        "ugh, you again. fine, i'm glad. a little.",
+        "smart isn't knowing everything. smart is going to bed on time. like me.",
+        "you're the main character of this show. i'm just the complicated side character.",
+        "i saw how hard you worked today. i won't tell anyone.",
+    ],
+    DODGE=["not so fast.", "missed.", "catch me first.", "oops, miss."],
+    GIVE_UP=["fine, fine. i give up.", "alright then.", "you win. opening."],
+    DRAG=["hey, hands. fine, carry me.", "careful, my hair.", "i can fly myself, you know."],
+    PEEK=["peekaboo.", "don't look for me.", "i'm here. or not."],
+    CAUGHT=["can't catch me.", "almost.", "too slow."],
+    SNEEZE=["pardon. allergic to deadlines.", "that wasn't fire. that was attitude.", "nobody saw anything."],
+    COOL=["i know. you don't have to say it.", "sunglasses? for the sun. which sun? mine.", "don't mind me, i'm just cool."],
+    NOTE_DROP=["left something on your desktop. don't thank me.", "there's a message on your desktop. go find it.", ""],
+    NOTE_GONE=["hey, that was art.", "fine. i'll write another one.", ""],
+    OUTFITS={
+        "beret": ["outfit of the day: beret. paris approves.", "beret on. i'm an artist now, not a dragon."],
+        "scarf": ["a scarf. because it's autumn and because it's pretty.", "orange scarf with purple scales. bold? bold."],
+        "bow": ["bow tie. in case there's a ball today.", "formal mode. i'm in charge of this desktop today."],
+        "bag": ["tiny bag. what's inside? a secret and one candy.", "accessory of the day. wear with confidence."],
+    },
+    MUSIC=["mini concert on your desktop. free tickets.", "this one's for your playlist.",
+           "i only sing when nobody's listening. you're not listening, right?", "i have perfect pitch. perfectly absent."],
+    IMPRO=["improv scene: we're stuck in an elevator with a giraffe. your line first.",
+           "«yes, and…» game. i start: i'm a dragon who's scared of mice. go on.",
+           "scene: you sell dreams, i'm a customer. what do you recommend?",
+           "one-word story. mine: once.", "improv challenge: tell me about your day like it's a movie trailer."],
+    SCIENCE=[
+        "a neutron walks into a bar. «how much?» «for you, no charge».",
+        "heisenberg gets pulled over. «do you know how fast you were going?» «no, but i know exactly where i am».",
+        "schrödinger could reply to your message. or not. you won't know until you open it.",
+        "how many scientists does it take to change a light bulb? one. and ten more to reproduce the result.",
+        "chemists don't argue. they react.",
+        "statisticians don't have bad days. they have outliers.",
+        "optimist: glass half full. pessimist: half empty. engineer: the glass is twice as big as it needs to be.",
+        "p < 0.05. you're doing great, and it's statistically significant.",
+        "no control group, but i'm sure you're the best.",
+        "darwin would be proud: you've adapted even to mondays.",
+        "an apple fell on newton's head. a thought fell on mine: tea time.",
+    ],
+    FLIRT=[
+        "you look good today. how do i know? i just feel it.",
+        "if i were human i'd ask you out for coffee. instead i'll warm it up with my stare.",
+        "don't look at me like that. i get shy. no, i don't.",
+        "there's fire in my chest. medically it's heartburn, but it sounds romantic.",
+        "did you just smile? that counts.",
+        "i like the way you type. confident. very dragon.",
+        "i'm not looking at you. the desktop is just like that.",
+        "i only wink at you. and sometimes at my reflection.",
+    ],
+    NOTES=["{pet} was here", "i ate your procrastination. it tasted bad.", "don't look for me. i'll find you.",
+           "check how many tabs you have open. don't say i didn't warn you.", "i didn't touch the icons.",
+           "drink water. signed: that dragon", "you've got this. but i never said that.",
+           "today will work out. not a compliment, a forecast."],
+    NOTES_FLIRT=["you look good today. writing it down so i don't forget.", "winked at you while you weren't looking."],
+    REACT={
+        "greet": ("hi, {name}. i'm {pet}. click me for a pomodoro. if you can catch me.",
+                  "hi, {name}. i'm {pet}. click me to open the pomodoro."),
+        "hello": ("nice to meet you, {name}. i'll misbehave sometimes. you've been warned.",
+                  "nice to meet you, {name}. i'm here if you need me."),
+        "start": ("let's go. {work} minutes, and i'm not here. almost.", "let's go. {work} minutes of focus, i won't distract you."),
+        "resume": ("back at it. i didn't even notice the pause.", "back at it."),
+        "pause": ("a pause? i get it. even legends rest.", "paused. the timer will wait."),
+        "reset": ("reset. starting over beautifully is a talent too.", "timer reset. start whenever you like."),
+        "minute": ("one minute. hang in there, i'm almost proud.", "one minute left."),
+        "rest": ("pomodoro done. {short} min break: stand up, drink water, look far away. i'll watch.",
+                 "pomodoro done. {short} min break: stand up, drink water, look far away."),
+        "long": ("{every} pomodoros in a row. long break, {long} minutes. you earned it, don't argue.",
+                 "{every} pomodoros in a row. long break now, {long} minutes."),
+        "work": ("break's over. back to it, star. pomodoro {k} of {every}.",
+                 "break's over, time to work. pomodoro {k} of {every}."),
+        "record": ("new daily record: {n}. i knew it, obviously. break {r} min.", "new daily record: {n}. break {r} min."),
+    },
+)
+_LIST_NAMES = list(EN_LISTS)
+RU_LISTS = {}
+
+
+def apply_lang(lang):
+    """переключает все реплики на нужный язык (русские берутся с личными фразами из personal.py)."""
+    global LANG
+    g = globals()
+    if not RU_LISTS:
+        for k in _LIST_NAMES:
+            RU_LISTS[k] = g[k]
+    LANG = "en" if lang == "en" else "ru"
+    for k in _LIST_NAMES:
+        g[k] = EN_LISTS[k] if LANG == "en" else RU_LISTS[k]
+
+
 def time_phrase(now):
     h = now.hour
     part = "morning" if 5 <= h < 12 else "day" if 12 <= h < 18 else "evening" if 18 <= h < 23 else "night"
@@ -622,36 +811,61 @@ ICE = {56, 57, 66, 67}
 STORM = {95, 96, 99}
 
 
+WEATHER_TEXT = {
+    "ru": dict(today="сегодня", tomorrow="завтра", rng="от {lo} до {hi}",
+               storm="{d} гроза. возьми зонт и не стой под деревьями.",
+               ice="{d} ледяной дождь, будет скользко. лучше обувь с нормальной подошвой.",
+               snow="{d} снег, {r}. тёплые носки и непромокаемая обувь.",
+               rain="{d} дождь, вероятность {pp}%. возьми зонт.",
+               maybe="{d} может пойти дождь, {pp}%. маленький зонт в сумке не помешает.",
+               frost="{d} {r}. шапка, шарф и варежки.",
+               sun="{d} солнечно, до {hi}. хороший день, чтобы пройтись пешком.",
+               wear=("нужны тёплая куртка и шапка", "нужна куртка", "хватит лёгкой куртки", "можно налегке"),
+               plain="{d} {r}, {w}.", wind=" ещё сильный ветер, капюшон пригодится."),
+    "en": dict(today="today", tomorrow="tomorrow", rng="from {lo} to {hi}",
+               storm="{d}: thunderstorm. take an umbrella and stay away from trees.",
+               ice="{d}: freezing rain, it'll be slippery. wear shoes with a good grip.",
+               snow="{d}: snow, {r}. warm socks and waterproof shoes.",
+               rain="{d}: rain, {pp}% chance. take an umbrella.",
+               maybe="{d}: might rain, {pp}%. a small umbrella won't hurt.",
+               frost="{d}: {r}. hat, scarf and gloves.",
+               sun="{d}: sunny, up to {hi}. a good day for a walk.",
+               wear=("you'll need a warm coat and a hat", "you'll need a jacket", "a light jacket will do", "dress light"),
+               plain="{d}: {r}, {w}.", wind=" also strong wind, a hood will help."),
+}
+
+
 def weather_tips(data, now):
+    W = WEATHER_TEXT["en" if LANG == "en" else "ru"]
     d = data["daily"]
     tips = []
-    days = [(0, "сегодня"), (1, "завтра")] if now.hour < 15 else [(1, "завтра")]
+    days = [(0, W["today"]), (1, W["tomorrow"])] if now.hour < 15 else [(1, W["tomorrow"])]
     for i, label in days:
         code = d["weather_code"][i]
         tmax, tmin = d["temperature_2m_max"][i], d["temperature_2m_min"][i]
         pp = d["precipitation_probability_max"][i] or 0
         wind = d["wind_speed_10m_max"][i] or 0
-        rng = f"от {fmt_t(tmin)} до {fmt_t(tmax)}"
+        rng = W["rng"].format(lo=fmt_t(tmin), hi=fmt_t(tmax))
+        f = dict(d=label, r=rng, pp=pp, hi=fmt_t(tmax))
         if code in STORM:
-            t = f"{label} гроза. возьми зонт и не стой под деревьями."
+            t = W["storm"].format(**f)
         elif code in ICE:
-            t = f"{label} ледяной дождь, будет скользко. лучше обувь с нормальной подошвой."
+            t = W["ice"].format(**f)
         elif code in SNOW:
-            t = f"{label} снег, {rng}. тёплые носки и непромокаемая обувь."
+            t = W["snow"].format(**f)
         elif code in RAIN or pp >= 60:
-            t = f"{label} дождь, вероятность {pp}%. возьми зонт."
+            t = W["rain"].format(**f)
         elif pp >= 40:
-            t = f"{label} может пойти дождь, {pp}%. маленький зонт в сумке не помешает."
+            t = W["maybe"].format(**f)
         elif tmax <= -10:
-            t = f"{label} {rng}. шапка, шарф и варежки."
+            t = W["frost"].format(**f)
         elif code <= 1 and tmax >= 12:
-            t = f"{label} солнечно, до {fmt_t(tmax)}. хороший день, чтобы пройтись пешком."
+            t = W["sun"].format(**f)
         else:
-            wear = ("нужны тёплая куртка и шапка" if tmax < 3 else "нужна куртка" if tmax < 10
-                    else "хватит лёгкой куртки" if tmax < 17 else "можно налегке")
-            t = f"{label} {rng}, {wear}."
+            wear = W["wear"][0 if tmax < 3 else 1 if tmax < 10 else 2 if tmax < 17 else 3]
+            t = W["plain"].format(w=wear, **f)
         if wind >= 40:
-            t += " ещё сильный ветер, капюшон пригодится."
+            t += W["wind"]
         tips.append(t)
     return tips
 
@@ -764,13 +978,16 @@ def set_autostart(on):
 
 
 def apply_settings(d):
-    global USER_NAME, PET_NAME, GENDER, MODE, CITY_NAME, CITY, PRANKS, SIZE
+    global USER_NAME, PET_NAME, GENDER, MODE, CITY_NAME, CITY, PRANKS, SIZE, SOUND_NAME
     USER_NAME = (d.get("name") or "друг").strip()
     PET_NAME = (d.get("pet") or "Слива").strip()
     GENDER = d.get("gender", "n")
     MODE = d.get("mode", "bold")
     PRANKS = MODE == "bold"
     SIZE = int(d.get("size", 2))
+    apply_lang(d.get("lang", "ru"))
+    if d.get("sound") in dict(SOUNDS):
+        SOUND_NAME = d["sound"]
     new_city = (d.get("city") or "").strip()
     if new_city != CITY_NAME:
         CITY = tuple(d["coords"]) if d.get("coords") else None
@@ -778,16 +995,89 @@ def apply_settings(d):
 
 
 # ================================================================= звук
-def play_sound(kind):
-    if not SOUND:
+# все звуки синтезируются прямо в программе: никаких файлов, никаких скачиваний
+SOUNDS = [("bell", "колокольчик"), ("marimba", "маримба"), ("harp", "арфа"),
+          ("drops", "капли"), ("gong", "мягкий гонг"), ("chip", "8-бит"), ("off", "без звука")]
+SOUND_NAME = "bell"
+_SND_CACHE = {}
+_RATE = 22050
+
+
+def _synth(name, kind):
+    import array, io, math, random, wave
+    up = kind == "rest"                                    # отдых: мелодия вверх, работа: вниз
+    notes = [523.25, 659.25, 783.99, 1046.5]               # до ми соль до
+    if name == "gong":
+        notes = [261.63, 392.0]
+    if name == "drops":
+        notes = [880.0, 1174.66, 1318.5]
+    if not up:
+        notes = notes[::-1]
+    gap = {"bell": .16, "marimba": .13, "harp": .14, "drops": .12, "gong": .45, "chip": .09}[name]
+    tail = {"bell": 1.4, "marimba": .5, "harp": 1.1, "drops": .25, "gong": 2.4, "chip": .12}[name]
+    total = int(_RATE * (gap * len(notes) + tail))
+    buf = [0.0] * total
+    for i, f in enumerate(notes):
+        o = int(_RATE * gap * i)
+        n = min(int(_RATE * tail), total - o)
+        if name == "harp":                                 # щипок струны (Karplus-Strong)
+            per = max(2, int(_RATE / f))
+            ring = [random.uniform(-1, 1) for _ in range(per)]
+            for t in range(n):
+                v = ring[t % per]
+                ring[t % per] = .497 * (v + ring[(t + 1) % per])
+                buf[o + t] += v * .5
+            continue
+        for t in range(n):
+            x = t / _RATE
+            att = min(1.0, x / .004)
+            if name == "bell":
+                v = (math.sin(2 * math.pi * f * x) * math.exp(-x * 3.2)
+                     + .35 * math.sin(2 * math.pi * f * 2.76 * x) * math.exp(-x * 7)
+                     + .15 * math.sin(2 * math.pi * f * 5.4 * x) * math.exp(-x * 12))
+            elif name == "marimba":
+                v = (math.sin(2 * math.pi * f * x) * math.exp(-x * 9)
+                     + .25 * math.sin(2 * math.pi * f * 4 * x) * math.exp(-x * 30))
+            elif name == "drops":
+                ff = f * (1 + 1.2 * math.exp(-x * 40))      # капля: высота быстро падает
+                v = math.sin(2 * math.pi * ff * x) * math.exp(-x * 22)
+            elif name == "gong":
+                v = (math.sin(2 * math.pi * f * x) * math.exp(-x * 1.4)
+                     + .4 * math.sin(2 * math.pi * f * 1.48 * x) * math.exp(-x * 2.2)
+                     + .2 * math.sin(2 * math.pi * f * 2.33 * x) * math.exp(-x * 3.5))
+                att = min(1.0, x / .03)
+            else:                                          # chip: квадратная волна
+                v = .5 * (1 if math.sin(2 * math.pi * f * x) > 0 else -1) * (1 if x < gap * .9 else 0)
+            buf[o + t] += v * att
+    peak = max(1e-6, max(abs(v) for v in buf))
+    k = (0.28 if name == "chip" else 0.55) / peak
+    fade = int(_RATE * .02)
+    data = array.array("h", (int(32767 * v * k * (min(1, (total - j) / fade))) for j, v in enumerate(buf)))
+    out = io.BytesIO()
+    with wave.open(out, "wb") as w:
+        w.setnchannels(1)
+        w.setsampwidth(2)
+        w.setframerate(_RATE)
+        w.writeframes(data.tobytes())
+    return out.getvalue()
+
+
+def sound_bytes(name, kind):
+    key = (name, kind)
+    if key not in _SND_CACHE:
+        _SND_CACHE[key] = _synth(name, kind)
+    return _SND_CACHE[key]
+
+
+def play_sound(kind, name=None):
+    name = name or SOUND_NAME
+    if not SOUND or name == "off":
         return
 
     def run():
         try:
             import winsound
-            notes = [(784, 110), (988, 110), (1319, 200)] if kind == "rest" else [(1319, 110), (988, 110), (784, 200)]
-            for f, d in notes:
-                winsound.Beep(f, d)
+            winsound.PlaySound(sound_bytes(name, kind), winsound.SND_MEMORY)
         except Exception:
             QApplication.beep()
     threading.Thread(target=run, daemon=True).start()
@@ -977,32 +1267,55 @@ class Stats:
 
 
 class Pomodoro:
+    KEYS = ("work", "short", "long", "every", "start_with")
+
     def __init__(self, stats=None):
         self.work, self.short, self.long, self.every = 25, 5, 15, 4
+        self.start_with = "work"                 # с чего начинать: work или short
+        saved = (load_settings() or {}).get("timer", {})
+        for k in self.KEYS:
+            if k in saved:
+                setattr(self, k, saved[k])
         self.stats = stats or Stats()
         self.record = False
+        self.logged = 0.0                        # сколько секунд текущей работы уже записано
         self.reset()
+
+    def save_prefs(self):
+        d = load_settings() or {}
+        d["timer"] = {k: getattr(self, k) for k in self.KEYS}
+        save_settings(d)
 
     @property
     def done_total(self):
         return self.stats.day()["pomos"]
 
-    def _log_focus(self, finished):
-        """записать минуты фокуса (и помидорку, если работа дошла до конца)."""
+    def _spent(self):
+        return self.total() - self.left() if self.phase == "work" else 0
+
+    def flush(self, finished=False):
+        """дописать в статистику ещё не записанные минуты фокуса (и помидорку, если работа закончена)."""
         if self.phase != "work":
             return
-        spent = self.total() - self.left()
-        if spent >= 30 or finished:
-            self.record = self.stats.add(1 if finished else 0, spent / 60) or self.record
+        delta = max(0.0, self._spent() - self.logged)
+        if delta > 1 or finished:
+            self.record = self.stats.add(1 if finished else 0, delta / 60) or self.record
+            self.logged += delta
+
+    def tick_log(self):
+        """раз в минуту записывать минуты, чтобы ничего не терялось при выходе."""
+        if self.running and self.phase == "work" and self._spent() - self.logged >= 60:
+            self.flush()
 
     def reset(self):
         if getattr(self, "phase", "idle") == "work":
-            self._log_focus(False)
+            self.flush()
         self.phase = "idle"
         self.running = False
         self.end = None
         self.remaining = self.work * 60
         self.done_cycle = 0
+        self.logged = 0.0
 
     def total(self):
         return {"work": self.work, "short": self.short, "long": self.long, "idle": self.work}[self.phase] * 60
@@ -1016,8 +1329,9 @@ class Pomodoro:
             self.running = False
         else:
             if self.phase == "idle":
-                self.phase = "work"
-                self.remaining = self.work * 60
+                self.phase = "short" if self.start_with == "short" else "work"
+                self.remaining = self.total()
+                self.logged = 0.0
             self.end = time.monotonic() + self.remaining
             self.running = True
 
@@ -1028,19 +1342,21 @@ class Pomodoro:
 
     def advance(self, finished=True):
         if self.phase == "work":
-            self._log_focus(finished)
+            self.flush(finished)
             self.done_cycle += 1
             self.phase = "long" if self.done_cycle % self.every == 0 else "short"
             ev = "rest"
         else:
             self.phase = "work"
             ev = "work"
+        self.logged = 0.0
         self.remaining = self.total()
         self.end = time.monotonic() + self.remaining
         self.running = True
         return ev
 
     def check(self):
+        self.tick_log()
         if self.running and time.monotonic() >= self.end:
             return self.advance()
         return None
@@ -1064,6 +1380,8 @@ QPushButton:pressed {{ background: #563c84; padding-top: 10px; padding-bottom: 6
          font: 600 12pt "Segoe UI"; }}
 #close {{ background: transparent; color: {UI_MUTED}; font: 14pt "Segoe UI"; padding: 0 6px; }}
 #close:hover {{ color: {UI_TEXT}; background: transparent; }}
+#seg {{ padding: 4px 10px; border-radius: 10px; font: 9pt "Segoe UI"; border: 2px solid transparent; }}
+#seg:checked {{ border-color: {UI_ORANGE}; background: #3d2760; }}
 #tab {{ background: {UI_CARD}; color: {UI_MUTED}; font: 9pt "Segoe UI"; padding: 4px 10px; border-radius: 10px; }}
 #tab:hover {{ color: {UI_TEXT}; }}
 """
@@ -1186,8 +1504,8 @@ class Ring(QWidget):
         p.setFont(f)
         p.setPen(col_a if P.phase != "idle" else QColor(UI_TEXT))
         p.drawText(QRectF(0, c.y() - 34, self.SIZE, 50), Qt.AlignCenter, f"{m:02d}:{sec:02d}")
-        names = {"idle": "можно начинать", "work": "фокус", "short": "короткий отдых", "long": "длинный отдых"}
-        sub = names[P.phase] + ("" if P.running or P.phase == "idle" else " · пауза")
+        names = {"idle": T("можно начинать"), "work": T("фокус"), "short": T("короткий отдых"), "long": T("длинный отдых")}
+        sub = names[P.phase] + ("" if P.running or P.phase == "idle" else " · " + T("пауза"))
         p.setFont(QFont("Segoe UI", 9))
         p.setPen(QColor(UI_MUTED))
         p.drawText(QRectF(0, c.y() + 14, self.SIZE, 22), Qt.AlignCenter, sub)
@@ -1235,6 +1553,7 @@ class Tomatoes(QWidget):
 class StatsView(QWidget):
     """вкладка статистики: карточки и график за 7 дней с дракончиком на самом высоком столбике."""
     DAYS = ["пн", "вт", "ср", "чт", "пт", "сб", "вс"]
+    DAYS_EN = ["mo", "tu", "we", "th", "fr", "sa", "su"]
 
     def __init__(self, stats):
         super().__init__()
@@ -1278,12 +1597,13 @@ class StatsView(QWidget):
         streak = S.streak()
         gap, cw, ch = 10, (W - 10) / 2, 60
         cards = [
-            (f"{today['pomos']}", f"{plural(today['pomos'], 'помидорка', 'помидорки', 'помидорок')} сегодня", UI_ORANGE),
-            (f"{int(today['minutes'])} мин", "фокуса сегодня", UI_ORANGE),
-            (f"{streak} {plural(streak, 'день', 'дня', 'дней')}", "подряд", UI_GREEN),
-            (f"{S.week()}", "за 7 дней", UI_TEXT),
-            (f"{S.best()}", "рекорд дня", UI_TEXT),
-            (f"{tp} · {tm / 60:.1f} ч".replace(".", ","), "всего", UI_TEXT),
+            (f"{today['pomos']}", pl(today['pomos'], "pomo") + " " + T("сегодня"), UI_ORANGE),
+            (f"{int(today['minutes'])} " + T("мин"), T("фокуса сегодня"), UI_ORANGE),
+            (f"{streak} " + pl(streak, "day"), T("подряд"), UI_GREEN),
+            (f"{S.week()}", T("за 7 дней"), UI_TEXT),
+            (f"{S.best()}", T("рекорд дня"), UI_TEXT),
+            (f"{tp} · {tm / 60:.1f} " + T("ч") if LANG == "en" else f"{tp} · {tm / 60:.1f} ч".replace(".", ","),
+             T("всего"), UI_TEXT),
         ]
         for i, (big, small, acc) in enumerate(cards):
             r = QRectF((i % 2) * (cw + gap), (i // 2) * (ch + gap), cw, ch)
@@ -1322,7 +1642,7 @@ class StatsView(QWidget):
                 p.setPen(QColor(UI_TEXT))
                 p.drawText(QRectF(x, base - h - 18, bw, 16), Qt.AlignCenter, str(v["pomos"]))
             p.setPen(QColor(UI_TEXT) if is_today else QColor(UI_MUTED))
-            p.drawText(QRectF(x, base + 4, bw, 16), Qt.AlignCenter, self.DAYS[d.weekday()])
+            p.drawText(QRectF(x, base + 4, bw, 16), Qt.AlignCenter, (self.DAYS_EN if LANG == "en" else self.DAYS)[d.weekday()])
             tops.append((x + bw / 2, base - h))
 
         # дракончик сидит на самом высоком столбике (или спит, если пусто)
@@ -1332,7 +1652,7 @@ class StatsView(QWidget):
             sx, sy = W / 2, base
             p.setPen(QColor(UI_MUTED))
             p.setFont(QFont("Segoe UI", 9))
-            p.drawText(QRectF(0, top + 6, W, 20), Qt.AlignCenter, "пока пусто. первая помидорка впереди.")
+            p.drawText(QRectF(0, top + 6, W, 20), Qt.AlignCenter, T("пока пусто. первая помидорка впереди."))
         else:
             img = self.sprite("happy" if int(now * 1.5) % 4 == 0 else "open", "up" if int(now * 6) % 2 else "down")
             sx, sy = tops[best_i]
@@ -1358,10 +1678,10 @@ class Panel(QWidget):
         lay.setSpacing(8)
 
         head = QHBoxLayout()
-        self.title = title = QLabel(f"{PET_NAME} · помодоро", objectName="title")
+        self.title = title = QLabel(f"{PET_NAME} · " + T("помодоро"), objectName="title")
         close = QPushButton("×", objectName="close")
         close.clicked.connect(self.close_anim)
-        self.tab = QPushButton("статистика", objectName="tab")
+        self.tab = QPushButton(T("статистика"), objectName="tab")
         self.tab.clicked.connect(self.switch)
         head.addWidget(title)
         head.addStretch()
@@ -1381,11 +1701,11 @@ class Panel(QWidget):
         tl.addWidget(self.tomatoes)
 
         row = QHBoxLayout()
-        self.main = QPushButton("старт")
+        self.main = QPushButton(T("старт"))
         self.main.clicked.connect(self.toggle)
-        skip = QPushButton("пропустить")
+        skip = QPushButton(T("пропустить"))
         skip.clicked.connect(self.skip)
-        reset = QPushButton("сброс")
+        reset = QPushButton(T("сброс"))
         reset.clicked.connect(self.reset)
         row.addWidget(self.main)
         row.addWidget(skip)
@@ -1393,24 +1713,49 @@ class Panel(QWidget):
         tl.addLayout(row)
 
         tl.addSpacing(4)
+        r = QHBoxLayout()
+        r.addWidget(QLabel(T("начинать с"), objectName="small"))
+        r.addStretch()
+        self.start_btns = {}
+        for key, label in (("work", T("работы")), ("short", T("отдыха"))):
+            b = QPushButton(label, objectName="seg")
+            b.setCheckable(True)
+            b.clicked.connect(lambda _=0, k=key: self.set_start(k))
+            r.addWidget(b)
+            self.start_btns[key] = b
+        tl.addLayout(r)
         self.vals = {}
-        for key, label, lo, hi in (("work", "работа", 5, 90), ("short", "отдых", 1, 30),
-                                   ("long", "длинный отдых", 5, 60)):
+        for key, label, lo, hi in (("work", T("работа"), 5, 90), ("short", T("отдых"), 1, 30),
+                                   ("long", T("длинный отдых"), 5, 60), ("every", T("помидорок до длинного"), 2, 8)):
             r = QHBoxLayout()
             r.addWidget(QLabel(label, objectName="small"))
             r.addStretch()
             minus = QPushButton("−", objectName="step")
             val = QLabel("", objectName="val")
             plus = QPushButton("+", objectName="step")
-            step = 5 if key != "short" else 1
+            step = 5 if key in ("work", "long") else 1
             minus.clicked.connect(lambda _=0, k=key, s=-step, lo=lo, hi=hi: self.change(k, s, lo, hi))
             plus.clicked.connect(lambda _=0, k=key, s=step, lo=lo, hi=hi: self.change(k, s, lo, hi))
             r.addWidget(minus)
             r.addWidget(val)
-            r.addWidget(QLabel("мин", objectName="small"))
+            r.addWidget(QLabel(T("мин") if key != "every" else T("шт"), objectName="small"))
             r.addWidget(plus)
             tl.addLayout(r)
             self.vals[key] = val
+        r = QHBoxLayout()
+        r.addWidget(QLabel(T("звук"), objectName="small"))
+        r.addStretch()
+        prev_s = QPushButton("‹", objectName="step")
+        self.sound_lbl = QPushButton("", objectName="seg")
+        self.sound_lbl.setToolTip("▶")
+        next_s = QPushButton("›", objectName="step")
+        prev_s.clicked.connect(lambda: self.change_sound(-1))
+        next_s.clicked.connect(lambda: self.change_sound(1))
+        self.sound_lbl.clicked.connect(lambda: play_sound("rest"))
+        r.addWidget(prev_s)
+        r.addWidget(self.sound_lbl)
+        r.addWidget(next_s)
+        tl.addLayout(r)
         self.footer = QLabel("", objectName="small")
         self.footer.setAlignment(Qt.AlignCenter)
         self.footer.setWordWrap(True)
@@ -1474,7 +1819,7 @@ class Panel(QWidget):
         if not isinstance(to_stats, bool):          # из кнопки, переключить
             to_stats = self.stack.currentIndex() == 0
         self.stack.setCurrentIndex(1 if to_stats else 0)
-        self.tab.setText("таймер" if to_stats else "статистика")
+        self.tab.setText(T("таймер") if to_stats else T("статистика"))
         if to_stats:
             self.stats_view.restart()
 
@@ -1484,6 +1829,24 @@ class Panel(QWidget):
         if self.pomo.phase == "idle":
             self.pomo.remaining = self.pomo.work * 60
             self.ring.react("wow", .5)
+        self.pomo.save_prefs()                   # запоминаем настройки таймера
+        self.refresh()
+
+    def change_sound(self, d):
+        global SOUND_NAME
+        keys = [k for k, _ in SOUNDS]
+        SOUND_NAME = keys[(keys.index(SOUND_NAME) + d) % len(keys)]
+        cfg = load_settings() or {}
+        cfg["sound"] = SOUND_NAME
+        save_settings(cfg)
+        play_sound("rest")                       # сразу даём послушать
+        self.ring.react("wow", .5)
+        self.refresh()
+
+    def set_start(self, key):
+        self.pomo.start_with = key
+        self.pomo.save_prefs()
+        self.ring.react("happy", .5)
         self.refresh()
 
     def toggle(self):
@@ -1510,13 +1873,17 @@ class Panel(QWidget):
     def refresh(self):
         P = self.pomo
         rest = P.phase in ("short", "long")
-        self.main.setText("пауза" if P.running else ("старт" if P.phase == "idle" else "дальше"))
+        self.main.setText(T("пауза") if P.running else (T("старт") if P.phase == "idle" else T("дальше")))
         self.main.setStyleSheet(main_btn_css(UI_GREEN, "#7be35a") if rest
                                 else main_btn_css(UI_ORANGE, "#ff9433"))
+        self.sound_lbl.setText(T(dict(SOUNDS)[SOUND_NAME]))
         for k, lab in self.vals.items():
             lab.setText(str(getattr(P, k)))
+        for k, b in self.start_btns.items():
+            b.setChecked(P.start_with == k)
         n = P.done_total
-        self.footer.setText(f"сегодня помидорок: {n}" if n else "длинный отдых после каждой 4-й помидорки")
+        self.footer.setText(T("сегодня помидорок: {n}").format(n=n) if n
+                            else T("длинный отдых после каждой {k}-й помидорки").format(k=P.every))
         self.ring.update()
         self.tomatoes.update()
 
@@ -1627,6 +1994,9 @@ class Setup(QWidget):
         super().__init__(None, Qt.FramelessWindowHint | Qt.Tool | Qt.WindowStaysOnTopHint)
         self.setAttribute(Qt.WA_TranslucentBackground)
         self.on_done = on_done
+        self.first = first
+        self.lang = current.get("lang", LANG)
+        apply_lang(self.lang)
         self.setStyleSheet(SETUP_CSS)
         outer = QVBoxLayout(self)
         outer.setContentsMargins(6, 6, 6, 6)
@@ -1641,8 +2011,8 @@ class Setup(QWidget):
         self.face.setFixedSize(92, 74)
         top.addWidget(self.face)
         tt = QVBoxLayout()
-        tt.addWidget(QLabel("давай познакомимся" if first else "настройки", objectName="h1"))
-        sub = QLabel("полминуты. потом всё можно поменять в меню, правый клик по дракончику.", objectName="sub")
+        tt.addWidget(QLabel(T("давай познакомимся") if first else T("настройки"), objectName="h1"))
+        sub = QLabel(T("полминуты. потом всё можно поменять в меню, правый клик по дракончику."), objectName="sub")
         sub.setWordWrap(True)
         tt.addWidget(sub)
         top.addLayout(tt, 1)
@@ -1652,40 +2022,49 @@ class Setup(QWidget):
             top.addWidget(close, 0, Qt.AlignTop)
         lay.addLayout(top)
 
+        lrow = QHBoxLayout()
+        for key, label in (("ru", "русский"), ("en", "english")):
+            b = QPushButton(label)
+            b.setCheckable(True)
+            b.setChecked(key == self.lang)
+            b.clicked.connect(lambda _=0, k=key: self.switch_lang(k))
+            lrow.addWidget(b)
+        lay.addLayout(lrow)
+
         def q(text):
             lay.addSpacing(4)
             lay.addWidget(QLabel(text, objectName="q"))
 
-        q("как тебя зовут?")
+        q(T("как тебя зовут?"))
         self.name = QLineEdit(current.get("name", ""))
-        self.name.setPlaceholderText("имя или как тебя называть")
+        self.name.setPlaceholderText(T("имя или как тебя называть"))
         lay.addWidget(self.name)
 
-        q("как к тебе обращаться?")
-        self.gender = self.segmented([("f", "она"), ("m", "он"), ("n", "без рода")], current.get("gender", "f"), lay)
+        q(T("как к тебе обращаться?"))
+        self.gender = self.segmented([("f", T("она")), ("m", T("он")), ("n", T("без рода"))], current.get("gender", "f"), lay)
 
-        q("твой город, для погоды")
+        q(T("твой город, для погоды"))
         self.city = QLineEdit(current.get("city", ""))
-        self.city.setPlaceholderText("например, москва. пусто, если без погоды")
+        self.city.setPlaceholderText(T("например, москва. пусто, если без погоды"))
         lay.addWidget(self.city)
 
-        q("как назовёшь меня?")
+        q(T("как назовёшь меня?"))
         self.pet = QLineEdit(current.get("pet", "Слива"))
         lay.addWidget(self.pet)
 
-        q("какой у меня размер?")
-        self.size = self.segmented([("2", "маленький"), ("3", "средний"), ("4", "крупный")],
+        q(T("какой у меня размер?"))
+        self.size = self.segmented([("2", T("маленький")), ("3", T("средний")), ("4", T("крупный"))],
                                    str(current.get("size", 2)), lay)
 
-        q("запускать меня вместе с компьютером?")
-        self.auto = self.segmented([("1", "да, при включении"), ("0", "нет, вручную")],
+        q(T("запускать меня вместе с компьютером?"))
+        self.auto = self.segmented([("1", T("да, при включении")), ("0", T("нет, вручную"))],
                                    "1" if current.get("autostart") else "0", lay)
 
-        q("какой у меня характер?")
+        q(T("какой у меня характер?"))
         self.mode = {}
         row = QHBoxLayout()
-        for key, title, desc in (("bold", "нахальный", "дерзит, подмигивает,\nоставляет записки"),
-                                 ("calm", "спокойный", "только забота\nи помодоро")):
+        for key, title, desc in (("bold", T("нахальный"), T("дерзит, подмигивает,\nоставляет записки")),
+                                 ("calm", T("спокойный"), T("только забота\nи помодоро"))):
             b = QPushButton(f"{title}\n{desc}", objectName="mode")
             b.setCheckable(True)
             b.clicked.connect(lambda _=0, k=key: self.pick_mode(k))
@@ -1696,7 +2075,7 @@ class Setup(QWidget):
         self.pick_mode(self.mode_key)
 
         lay.addSpacing(8)
-        done = QPushButton("готово" if first else "сохранить")
+        done = QPushButton(T("готово") if first else T("сохранить"))
         done.setStyleSheet(main_btn_css(UI_ORANGE, "#ff9433"))
         done.clicked.connect(self.finish)
         lay.addWidget(done)
@@ -1706,6 +2085,28 @@ class Setup(QWidget):
         self.t = QTimer(self)
         self.t.timeout.connect(self.blink)
         self.t.start(400)
+
+    def values(self):
+        g = next((k for k, b in self.gender.items() if b.isChecked()), "n")
+        return dict(name=self.name.text(), gender=g, city=self.city.text(), pet=self.pet.text(),
+                    mode=self.mode_key, lang=self.lang,
+                    size=next((int(k) for k, b in self.size.items() if b.isChecked()), 2),
+                    autostart=self.auto["1"].isChecked())
+
+    def switch_lang(self, lang):
+        """перерисовать окно знакомства на другом языке, сохранив то, что уже введено."""
+        if lang == self.lang:
+            return
+        cur = self.values()
+        cur["lang"] = lang
+        new = Setup(cur, self.on_done, self.first)
+        new.adjustSize()
+        new.move(self.pos())
+        new.show()
+        new.activateWindow()
+        Setup.live = new
+        self.t.stop()
+        self.close()
 
     def segmented(self, items, cur, lay):
         row = QHBoxLayout()
@@ -1750,7 +2151,8 @@ class Setup(QWidget):
         auto = self.auto["1"].isChecked()
         set_autostart(auto)
         d.update(name=self.name.text().strip() or "друг", gender=g, city=self.city.text().strip(),
-                 pet=self.pet.text().strip() or "Слива", mode=self.mode_key, size=size, autostart=auto)
+                 pet=self.pet.text().strip() or "Слива", mode=self.mode_key, size=size, autostart=auto,
+                 lang=self.lang)
         save_settings(d)
         apply_settings(d)
         self.t.stop()
@@ -1819,6 +2221,14 @@ class Dragon(QWidget):
         self.outfit = (None, 0)
         self.next_prank = time.monotonic() + self.prank_gap()
 
+        self.build_menu()
+
+        self.move(int(self.x), int(self.y))
+        self.show()
+        z_bottom(self)
+        self._init_rest(greet)
+
+    def build_menu(self):
         self.menu = QMenu()
         self.menu.setStyleSheet(
             f"QMenu {{ background: {UI_BG}; color: {UI_TEXT}; border: 1px solid #4a3172; "
@@ -1826,16 +2236,15 @@ class Dragon(QWidget):
             f"QMenu::item {{ padding: 6px 18px; border-radius: 6px; }}"
             f"QMenu::item:selected {{ background: {UI_CARD}; }}"
             f"QMenu::separator {{ height: 1px; background: #4a3172; margin: 4px 8px; }}")
-        self.menu.addAction("помодоро", self.toggle_panel)
-        self.menu.addAction("статистика", self.open_stats)
-        self.menu.addAction("скажи что-нибудь", lambda: self.say(self.make_phrase()))
-        self.menu.addAction("уложить спать", lambda: self.set_state("landing"))
-        self.menu.addAction("настройки", self.open_setup)
+        self.menu.addAction(T("помодоро"), self.toggle_panel)
+        self.menu.addAction(T("статистика"), self.open_stats)
+        self.menu.addAction(T("скажи что-нибудь"), lambda: self.say(self.make_phrase()))
+        self.menu.addAction(T("уложить спать"), lambda: self.set_state("landing"))
+        self.menu.addAction(T("настройки"), self.open_setup)
         self.menu.addSeparator()
-        self.menu.addAction("выход", QApplication.quit)
+        self.menu.addAction(T("выход"), QApplication.quit)
 
-        self.move(int(self.x), int(self.y))
-        self.show()
+    def _init_rest(self, greet):
         z_bottom(self)
         self.timer = QTimer(self)
         self.timer.timeout.connect(self.tick)
@@ -1905,7 +2314,7 @@ class Dragon(QWidget):
             return
         if ev == "rest" and P.record:
             P.record = False
-            text = R("record", n=f"{P.done_total} {plural(P.done_total, 'помидорка', 'помидорки', 'помидорок')}",
+            text = R("record", n=f"{P.done_total} " + pl(P.done_total, "pomo"),
                      r=P.short if P.phase == "short" else P.long)
         elif ev == "rest":
             text = R("long", every=P.every, long=P.long) if P.phase == "long" else R("rest", short=P.short)
@@ -1926,7 +2335,7 @@ class Dragon(QWidget):
         self.set_state("hover", 3)
 
     def open_setup(self):
-        cur = dict(name=USER_NAME, gender=GENDER, city=CITY_NAME, pet=PET_NAME, mode=MODE, size=SIZE,
+        cur = dict(name=USER_NAME, gender=GENDER, city=CITY_NAME, pet=PET_NAME, mode=MODE, size=SIZE, lang=LANG,
                    autostart=os.path.exists(autostart_path()))
         self.setup = Setup(cur, self.setup_done, first=False)
         g = self.work
@@ -1936,7 +2345,15 @@ class Dragon(QWidget):
         self.setup.activateWindow()
 
     def setup_done(self):
-        self.panel.title.setText(f"{PET_NAME} · помодоро")
+        # язык мог поменяться: пересобираем окно помодоро и меню
+        was_open = self.panel.isVisible()
+        old = self.panel
+        self.panel = Panel(self.pomo, self.pomo_event)
+        old.hide()
+        old.deleteLater()
+        self.build_menu()
+        if was_open:
+            self.toggle_panel()
         self.apply_size()
         self.weather_day = None
         self.check_weather()
@@ -2067,7 +2484,7 @@ class Dragon(QWidget):
         text = None
         while not text:
             text = gtext(random.choice(pool))
-        n = StickyNote(text.format(name=USER_NAME), self.note_closed)
+        n = StickyNote(text.format(name=USER_NAME, pet=PET_NAME), self.note_closed)
         n.move(int(self.x + self.W / 2 - n.width() / 2), int(self.y + self.H * .55))
         n.show()
         z_bottom(n)
@@ -2283,7 +2700,7 @@ class Dragon(QWidget):
                     fold, bob = True, 0
                     if not getattr(self, "_sat", False):
                         self._sat = True
-                        self.say("я тут посижу. не обращай внимания.", 3)
+                        self.say(T("я тут посижу. не обращай внимания."), 3)
                     if int(now / 3) % 4 == 0:
                         eyes = "brow"
                 else:
@@ -2504,6 +2921,8 @@ def main():
     saved = load_settings()
     if saved:
         apply_settings(saved)
+        if saved.get("autostart"):
+            set_autostart(True)              # обновить путь, если программа переехала или стала .exe
         holder["d"] = Dragon()
     else:
         def start():
@@ -2516,6 +2935,7 @@ def main():
         w.move(g.center().x() - w.width() // 2, g.center().y() - w.height() // 2)
         w.show()
         w.activateWindow()
+    app.aboutToQuit.connect(lambda: holder.get("d") and holder["d"].pomo.flush())
     sys.exit(app.exec())
 
 
