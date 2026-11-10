@@ -1091,17 +1091,57 @@ def sound_bytes(name, kind):
     return _SND_CACHE[key]
 
 
-def play_sound(kind, name=None):
+_play_id = [0]
+
+
+def stop_sound():
+    _play_id[0] += 1
+    try:
+        import winsound
+        winsound.PlaySound(None, winsound.SND_PURGE)
+    except Exception:
+        pass
+
+
+def play_sound(kind, name=None, preview=False):
+    """preview: при выборе в окне помодоро играем только первые 3 секунды."""
     name = name or SOUND_NAME
     if not SOUND or name == "off":
         return
+    stop_sound()
+    my = _play_id[0]
 
     def run():
         try:
             import winsound
-            winsound.PlaySound(sound_bytes(name, kind), winsound.SND_MEMORY)
+            data = sound_bytes(name, kind)
+            if preview and len(data) > 44:                 # обрезаем wav до 3 секунд
+                import io, wave
+                src = wave.open(io.BytesIO(data))
+                frames = src.readframes(int(src.getframerate() * 3))
+                out = io.BytesIO()
+                w = wave.open(out, "wb")
+                w.setparams(src.getparams())
+                w.writeframes(frames)
+                w.close()
+                data = out.getvalue()
+            if my == _play_id[0]:
+                winsound.PlaySound(data, winsound.SND_MEMORY)
         except Exception:
             QApplication.beep()
+    threading.Thread(target=run, daemon=True).start()
+
+
+def warm_sounds():
+    """заранее собрать встроенные звуки, чтобы клики по стрелкам не подтормаживали."""
+    def run():
+        for k, _ in SOUNDS[:-1]:
+            for kind in ("rest", "work"):
+                try:
+                    sound_bytes(k, kind)
+                except Exception:
+                    pass
+                time.sleep(.05)
     threading.Thread(target=run, daemon=True).start()
 
 
@@ -1155,7 +1195,9 @@ class Bubble(QWidget):
         super().__init__(None, base_flags())
         self.setAttribute(Qt.WA_TranslucentBackground)
         self.setAttribute(Qt.WA_ShowWithoutActivating)
-        self.font_ = QFont("Segoe UI", 10)
+        self.font_ = QFont("Segoe UI")
+        self.font_.setPixelSize(13)          # в пикселях: не зависит от dpi экрана
+        self.setFont(self.font_)
         self.text = ""
         self.tail_up = False
         self.tail_x = 0
@@ -1164,9 +1206,9 @@ class Bubble(QWidget):
     def set_text(self, text):
         text = voice(text)
         self.text = text
-        fm = QFontMetrics(self.font_)
+        fm = QFontMetrics(self.font_, self)
         r = fm.boundingRect(QRect(0, 0, self.MAXW, 1000), Qt.TextWordWrap, text)
-        self.tw, self.th = r.width(), r.height()
+        self.tw, self.th = r.width() + 6, r.height() + 2      # запас, чтобы буквы не вылезали
         self.resize(self.tw + 34, self.th + 38)
 
     def place_near(self, pet_rect, work, anchor_x=None):
@@ -1773,7 +1815,7 @@ class Panel(QWidget):
         next_s = QPushButton("›", objectName="step")
         prev_s.clicked.connect(lambda: self.change_sound(-1))
         next_s.clicked.connect(lambda: self.change_sound(1))
-        self.sound_lbl.clicked.connect(lambda: play_sound("rest"))
+        self.sound_lbl.clicked.connect(lambda: play_sound("rest", preview=True))
         r.addWidget(prev_s)
         r.addWidget(self.sound_lbl)
         r.addWidget(next_s)
@@ -1826,6 +1868,7 @@ class Panel(QWidget):
         a.start()
 
     def _closed(self):
+        stop_sound()
         self.hide()
         self.anim_timer.stop()
         self.setWindowOpacity(1)
@@ -1862,7 +1905,7 @@ class Panel(QWidget):
         cfg = load_settings() or {}
         cfg["sound"] = SOUND_NAME
         save_settings(cfg)
-        play_sound("rest")                       # сразу даём послушать
+        play_sound("rest", preview=True)         # даём послушать 3 секунды
         self.ring.react("wow", .5)
         self.refresh()
 
@@ -1896,17 +1939,23 @@ class Panel(QWidget):
     def refresh(self):
         P = self.pomo
         rest = P.phase in ("short", "long")
-        self.main.setText(T("пауза") if P.running else (T("старт") if P.phase == "idle" else T("дальше")))
-        self.main.setStyleSheet(main_btn_css(UI_GREEN, "#7be35a") if rest
-                                else main_btn_css(UI_ORANGE, "#ff9433"))
-        self.sound_lbl.setText(sound_title(SOUND_NAME))
+        def put(w, t):                       # менять текст только если он правда поменялся
+            if w.text() != t:
+                w.setText(t)
+        put(self.main, T("пауза") if P.running else (T("старт") if P.phase == "idle" else T("дальше")))
+        if getattr(self, "_rest_css", None) != rest:      # перекраска кнопки дорогая, только при смене фазы
+            self._rest_css = rest
+            self.main.setStyleSheet(main_btn_css(UI_GREEN, "#7be35a") if rest
+                                    else main_btn_css(UI_ORANGE, "#ff9433"))
+        put(self.sound_lbl, sound_title(SOUND_NAME))
         for k, lab in self.vals.items():
-            lab.setText(str(getattr(P, k)))
+            put(lab, str(getattr(P, k)))
         for k, b in self.start_btns.items():
-            b.setChecked(P.start_with == k)
+            if b.isChecked() != (P.start_with == k):
+                b.setChecked(P.start_with == k)
         n = P.done_total
-        self.footer.setText(T("сегодня помидорок: {n}").format(n=n) if n
-                            else T("длинный отдых после каждой {k}-й помидорки").format(k=P.every))
+        put(self.footer, T("сегодня помидорок: {n}").format(n=n) if n
+            else T("длинный отдых после каждой {k}-й помидорки").format(k=P.every))
         self.ring.update()
         self.tomatoes.update()
 
@@ -2268,6 +2317,7 @@ class Dragon(QWidget):
         self.menu.addAction(T("выход"), QApplication.quit)
 
     def _init_rest(self, greet):
+        warm_sounds()
         z_bottom(self)
         self.timer = QTimer(self)
         self.timer.timeout.connect(self.tick)
@@ -2835,6 +2885,12 @@ class Dragon(QWidget):
             for n in self.notes:
                 z_bottom(n)
             self.last_push = now
+        if now - getattr(self, "_work_check", 0) > 5:
+            self._work_check = now
+            wa = QGuiApplication.primaryScreen().availableGeometry()
+            if wa != self.work:
+                self.work = wa
+                self.apply_size()
 
         want = 100 if st == "sleep" else 33
         if self.timer.interval() != want:
@@ -2847,6 +2903,8 @@ class Dragon(QWidget):
         self.H = int(math.ceil(CH + self.TOP))
         self.setFixedSize(self.W, self.H)
         self.floor = self.work.bottom() - int(self.TOP + (32 - Y0) * PIX)
+        if isinstance(self.y, (int, float)) and self.y > self.floor:
+            self.y = self.floor
         self._sig = None
         self.update()
 
