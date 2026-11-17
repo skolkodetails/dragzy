@@ -73,6 +73,7 @@ WEATHER = True               # False, совсем без интернета
 CITY = None                  # координаты, находятся по названию города
 PHRASE_EVERY_MIN = (7, 13)   # фразочка раз в 7-13 минут
 SOUND = True
+VERSION = "1.4"
 PRANKS = True                # хулиганства (включены в нахальном характере)
 FLY_SPEED = 2.6
 CHASE_SPEED = 6.0
@@ -2370,6 +2371,8 @@ class Dragon(QWidget):
             f"QMenu::item {{ padding: 6px 18px; border-radius: 6px; }}"
             f"QMenu::item:selected {{ background: {UI_CARD}; }}"
             f"QMenu::separator {{ height: 1px; background: #4a3172; margin: 4px 8px; }}")
+        ver = self.menu.addAction(f"Dragzy {VERSION}")
+        ver.setEnabled(False)
         self.menu.addAction(T("помодоро"), self.toggle_panel)
         self.menu.addAction(T("статистика"), self.open_stats)
         self.menu.addAction(T("скажи что-нибудь"), lambda: self.say(self.make_phrase()))
@@ -2964,6 +2967,15 @@ class Dragon(QWidget):
         self.W = int(math.ceil(CW))
         self.H = int(math.ceil(CH + self.TOP))
         self.setFixedSize(self.W, self.H)
+        try:                                 # для диагностики: какой масштаб увидела программа
+            scr = QGuiApplication.primaryScreen()
+            with open(os.path.join(app_dir(), "debug.txt"), "w", encoding="utf-8") as f:
+                f.write(f"version {VERSION}\nexe {sys.executable}\nfrozen {FROZEN}\n"
+                        f"dpr {scr.devicePixelRatio()} logicalDpi {scr.logicalDotsPerInch()}\n"
+                        f"size {SIZE} PIX {PIX} window {self.W}x{self.H} grid {GW}x{GH}\n"
+                        f"screen {scr.geometry().getRect()} work {self.work.getRect()}\n")
+        except Exception:
+            pass
         self.floor = self.work.bottom() - int(self.TOP + (32 - Y0) * PIX)
         if isinstance(self.y, (int, float)) and self.y > self.floor:
             self.y = self.floor
