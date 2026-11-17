@@ -47,7 +47,7 @@ try:
                                QLinearGradient, QPainter, QPainterPath, QPen, QPolygonF,
                                QRadialGradient)
     from PySide6.QtWidgets import (QApplication, QFrame, QHBoxLayout, QLabel, QLineEdit, QMenu,
-                                   QProgressBar, QPushButton, QStackedWidget, QVBoxLayout, QWidget)
+                                   QProgressBar, QPushButton, QSizePolicy, QStackedWidget, QVBoxLayout, QWidget)
 except ImportError:
     try:
         import tkinter as tk
@@ -114,6 +114,7 @@ EN = {
     "только забота\nи помодоро": "just care\nand pomodoro", "уложить спать": "go to sleep", "фокус": "focus",
     "фокуса сегодня": "focus today", "ч": "h", "шт": "", "я тут посижу. не обращай внимания.": "i'll just sit here. don't mind me.",
     "язык": "language", "звук": "sound", "без звука": "no sound",
+    "настройки таймера": "timer settings", "всё сохраняется само": "everything saves automatically",
     "колокольчик": "bell", "маримба": "marimba", "арфа": "harp", "капли": "drops",
     "мягкий гонг": "soft gong", "8-бит": "8-bit",
 }
@@ -374,7 +375,8 @@ def grid_image(grid):
     return img
 
 
-def draw_pixels(p, img, x, y, scale=PIX):
+def draw_pixels(p, img, x, y, scale=None):
+    scale = PIX if scale is None else scale
     p.setRenderHint(QPainter.SmoothPixmapTransform, False)
     p.drawImage(QRectF(x, y, img.width() * scale, img.height() * scale), img)
 
@@ -1726,6 +1728,35 @@ class StatsView(QWidget):
         p.drawImage(QRectF(sx - w / 2, sy - h * .93, w, h), img)
 
 
+class PageStack(QWidget):
+    """как QStackedWidget, но высота берётся только у видимой страницы."""
+    def __init__(self):
+        super().__init__()
+        self._lay = QVBoxLayout(self)
+        self._lay.setContentsMargins(0, 0, 0, 0)
+        self._pages = []
+        self._i = 0
+
+    def addWidget(self, w):
+        self._pages.append(w)
+        self._lay.addWidget(w)
+        w.setVisible(len(self._pages) == 1)
+
+    def setCurrentIndex(self, i):
+        self._i = i
+        for j, w in enumerate(self._pages):
+            w.setVisible(j == i)
+
+    def currentIndex(self):
+        return self._i
+
+    def count(self):
+        return len(self._pages)
+
+    def widget(self, i):
+        return self._pages[i]
+
+
 class Panel(QWidget):
     def __init__(self, pomo, on_event):
         super().__init__(None, Qt.FramelessWindowHint | Qt.Tool | Qt.WindowStaysOnTopHint)
@@ -1742,18 +1773,22 @@ class Panel(QWidget):
         lay.setSpacing(8)
 
         head = QHBoxLayout()
-        self.title = title = QLabel(f"{PET_NAME} · " + T("помодоро"), objectName="title")
+        self.title = title = QLabel(PET_NAME, objectName="title")
         close = QPushButton("×", objectName="close")
         close.clicked.connect(self.close_anim)
         self.tab = QPushButton(T("статистика"), objectName="tab")
-        self.tab.clicked.connect(self.switch)
+        self.tab.clicked.connect(lambda: self.switch())       # clicked передаёт bool, его не пускаем дальше
+        self.gear = QPushButton("⚙", objectName="tab")
+        self.gear.setToolTip(T("настройки"))
+        self.gear.clicked.connect(lambda: self.show_page(0 if self.stack.currentIndex() == 2 else 2))
         head.addWidget(title)
         head.addStretch()
         head.addWidget(self.tab)
+        head.addWidget(self.gear)
         head.addWidget(close)
         lay.addLayout(head)
 
-        self.stack = QStackedWidget()
+        self.stack = PageStack()
         page = QWidget()
         tl = QVBoxLayout(page)
         tl.setContentsMargins(0, 0, 0, 0)
@@ -1775,8 +1810,17 @@ class Panel(QWidget):
         row.addWidget(skip)
         row.addWidget(reset)
         tl.addLayout(row)
+        self.footer = QLabel("", objectName="small")
+        self.footer.setAlignment(Qt.AlignCenter)
+        self.footer.setWordWrap(True)
+        tl.addWidget(self.footer)
 
-        tl.addSpacing(4)
+        # --- отдельная страница настроек
+        spage = QWidget()
+        timer_page, tl = page, QVBoxLayout(spage)
+        tl.setContentsMargins(0, 4, 0, 0)
+        tl.setSpacing(10)
+        tl.addWidget(QLabel(T("настройки таймера"), objectName="title"))
         r = QHBoxLayout()
         r.addWidget(QLabel(T("начинать с"), objectName="small"))
         r.addStretch()
@@ -1792,8 +1836,9 @@ class Panel(QWidget):
         for key, label, lo, hi in (("work", T("работа"), 5, 90), ("short", T("отдых"), 1, 30),
                                    ("long", T("длинный отдых"), 5, 60), ("every", T("помидорок до длинного"), 2, 8)):
             r = QHBoxLayout()
-            r.addWidget(QLabel(label, objectName="small"))
-            r.addStretch()
+            lab = QLabel(label, objectName="small")
+            lab.setWordWrap(True)
+            r.addWidget(lab, 1)
             minus = QPushButton("−", objectName="step")
             val = QLabel("", objectName="val")
             plus = QPushButton("+", objectName="step")
@@ -1820,13 +1865,16 @@ class Panel(QWidget):
         r.addWidget(self.sound_lbl)
         r.addWidget(next_s)
         tl.addLayout(r)
-        self.footer = QLabel("", objectName="small")
-        self.footer.setAlignment(Qt.AlignCenter)
-        self.footer.setWordWrap(True)
-        tl.addWidget(self.footer)
+        tl.addWidget(QLabel(T("всё сохраняется само"), objectName="small"), 0, Qt.AlignHCenter)
+        back = QPushButton(T("готово"))
+        back.clicked.connect(lambda: self.show_page(0))
+        tl.addWidget(back)
+        tl.addStretch()
         self.stats_view = StatsView(pomo.stats)
-        self.stack.addWidget(page)
+        self.stack.addWidget(timer_page)
         self.stack.addWidget(self.stats_view)
+        self.stack.addWidget(spage)
+        QTimer.singleShot(0, lambda: self.show_page(0))
         lay.addWidget(self.stack)
         self.setFixedWidth(330)
         self._drag = None
@@ -1874,19 +1922,33 @@ class Panel(QWidget):
         self.setWindowOpacity(1)
 
     def animate(self):
-        if self.stack.currentIndex() == 0:
+        i = self.stack.currentIndex()
+        if i == 0:
             self.ring.update()
             self.tomatoes.update()
-        else:
+        elif i == 1:
             self.stats_view.update()
 
     def switch(self, to_stats=None):
-        if not isinstance(to_stats, bool):          # из кнопки, переключить
-            to_stats = self.stack.currentIndex() == 0
-        self.stack.setCurrentIndex(1 if to_stats else 0)
-        self.tab.setText(T("таймер") if to_stats else T("статистика"))
-        if to_stats:
+        if not isinstance(to_stats, bool):          # из кнопки: со статистики на таймер, иначе на статистику
+            to_stats = self.stack.currentIndex() != 1
+        self.show_page(1 if to_stats else 0)
+
+    def show_page(self, i):
+        """0 таймер, 1 статистика, 2 настройки. окно подстраивает высоту под страницу."""
+        self.stack.setCurrentIndex(i)
+        self.tab.setText(T("таймер") if i == 1 else T("статистика"))
+        if i == 1:
             self.stats_view.restart()
+        self._fit()
+        QTimer.singleShot(0, self._fit)          # второй раз, когда qt уже убрал скрытую страницу из раскладки
+
+    def _fit(self):
+        lay = self.layout()
+        lay.invalidate()
+        lay.activate()
+        h = lay.heightForWidth(self.width()) if lay.hasHeightForWidth() else self.sizeHint().height()
+        self.resize(self.width(), h)
 
     # --- кнопки
     def change(self, key, step, lo, hi):
